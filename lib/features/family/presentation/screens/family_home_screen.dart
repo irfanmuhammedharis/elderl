@@ -566,7 +566,7 @@ class _FamilyHomeScreenState extends ConsumerState<FamilyHomeScreen>
             ),
             const SizedBox(height: 10),
             Text(label,
-                style: TextStyle(
+                style: const TextStyle(
                     fontWeight: FontWeight.w600,
                     fontSize: 14,
                     color: AppTheme.textPrimaryLight)),
@@ -608,7 +608,7 @@ class _FamilyHomeScreenState extends ConsumerState<FamilyHomeScreen>
                       fontWeight: FontWeight.w600,
                       color: AppTheme.emergencyColor)),
               const SizedBox(height: 2),
-              Text('You\'ll be notified if an emergency is triggered',
+              const Text('You\'ll be notified if an emergency is triggered',
                   style: TextStyle(
                       color: AppTheme.textSecondaryLight, fontSize: 13)),
             ])),
@@ -733,7 +733,7 @@ class _FamilyHomeScreenState extends ConsumerState<FamilyHomeScreen>
                 style: Theme.of(context).textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w700)),
             const SizedBox(height: 8),
-            Text('Enter the email of the senior you care for',
+            const Text('Enter the email of the senior you care for',
                 style: TextStyle(color: AppTheme.textSecondaryLight),
                 textAlign: TextAlign.center),
             const SizedBox(height: 24),

@@ -327,9 +327,9 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                     ),
                                     child: Row(
                                       children: [
-                                        Icon(
+                                        const Icon(
                                           Icons.info_outline,
-                                          color: const Color(0xFF1565C0),
+                                          color: Color(0xFF1565C0),
                                           size: 20,
                                         ),
                                         const SizedBox(width: 12),
@@ -426,10 +426,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
             child: Row(
               mainAxisSize: MainAxisSize.min,
               children: [
-                Icon(
+                const Icon(
                   Icons.security,
                   size: 18,
-                  color: const Color(0xFF1565C0),
+                  color: Color(0xFF1565C0),
                 ),
                 const SizedBox(width: 8),
                 Text(
@@ -529,7 +529,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   Widget _buildLoginButton(bool isLoading) {
-    final adminGradient = const LinearGradient(
+    const adminGradient = LinearGradient(
       colors: [Color(0xFF1565C0), Color(0xFF0D47A1)],
       begin: Alignment.topLeft,
       end: Alignment.bottomRight,
@@ -561,7 +561,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                       valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
                   )
-                : Row(
+                : const Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       Icon(
@@ -569,10 +569,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                         color: Colors.white, 
                         size: 24,
                       ),
-                      const SizedBox(width: 12),
+                      SizedBox(width: 12),
                       Text(
                         kIsWeb ? 'Access Admin Portal' : 'Sign In',
-                        style: const TextStyle(
+                        style: TextStyle(
                           color: Colors.white,
                           fontSize: 18,
                           fontWeight: FontWeight.w600,

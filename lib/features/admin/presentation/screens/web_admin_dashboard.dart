@@ -54,11 +54,11 @@ class _WebAdminDashboardState extends ConsumerState<WebAdminDashboard>
 
     return Scaffold(
       appBar: AppBar(
-        title: Row(
+        title: const Row(
           children: [
-            const Icon(Icons.admin_panel_settings, size: 28),
-            const SizedBox(width: 12),
-            const Text('ElderL Admin Portal'),
+            Icon(Icons.admin_panel_settings, size: 28),
+            SizedBox(width: 12),
+            Text('ElderL Admin Portal'),
           ],
         ),
         backgroundColor: AppTheme.primaryColor,

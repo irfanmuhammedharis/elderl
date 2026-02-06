@@ -127,14 +127,14 @@ class _SeniorTextFieldState extends State<SeniorTextField> {
           ),
           border: OutlineInputBorder(
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-            borderSide: BorderSide(
+            borderSide: const BorderSide(
               color: AppTheme.borderLight,
               width: 1.5,
             ),
           ),
           enabledBorder: OutlineInputBorder(
             borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-            borderSide: BorderSide(
+            borderSide: const BorderSide(
               color: AppTheme.borderLight,
               width: 1.5,
             ),

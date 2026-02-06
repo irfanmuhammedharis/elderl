@@ -209,7 +209,7 @@ class _SeniorHomeScreenState extends ConsumerState<SeniorHomeScreen>
                 color: AppTheme.primaryColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(Icons.person, size: 24, color: AppTheme.primaryColor),
+              child: const Icon(Icons.person, size: 24, color: AppTheme.primaryColor),
             ),
             onPressed: () => context.push(AppRoutes.profile),
             tooltip: 'Profile',
@@ -222,7 +222,7 @@ class _SeniorHomeScreenState extends ConsumerState<SeniorHomeScreen>
                 color: AppTheme.errorColor.withOpacity(0.1),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(Icons.logout, size: 24, color: AppTheme.errorColor),
+              child: const Icon(Icons.logout, size: 24, color: AppTheme.errorColor),
             ),
             onPressed: () async {
               await ref.read(authControllerProvider.notifier).signOut();

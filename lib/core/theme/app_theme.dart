@@ -6,10 +6,10 @@ import 'package:flutter/services.dart';
 class AppTheme {
   AppTheme._();
 
-  // Brand Colors - Modern healthcare palette
-  static const Color primaryColor = Color(0xFF2563EB); // Professional blue
-  static const Color primaryDark = Color(0xFF1D4ED8);
-  static const Color primaryLight = Color(0xFF60A5FA);
+  // Brand Colors - Dark blue healthcare palette
+  static const Color primaryColor = Color(0xFF0D47A1); // Dark blue
+  static const Color primaryDark = Color(0xFF1A237E);
+  static const Color primaryLight = Color(0xFF42A5F5);
   static const Color secondaryColor = Color(0xFF10B981); // Emerald green
   static const Color accentColor = Color(0xFF8B5CF6); // Purple accent
   
@@ -499,65 +499,65 @@ class AppTheme {
     ),
     
     // Dark mode typography
-    textTheme: TextTheme(
-      displayLarge: const TextStyle(
+    textTheme: const TextTheme(
+      displayLarge: TextStyle(
         fontSize: 40,
         fontWeight: FontWeight.w700,
         letterSpacing: -1.0,
         height: 1.2,
         color: textPrimaryDark,
       ),
-      displayMedium: const TextStyle(
+      displayMedium: TextStyle(
         fontSize: 34,
         fontWeight: FontWeight.w700,
         letterSpacing: -0.5,
         height: 1.2,
         color: textPrimaryDark,
       ),
-      displaySmall: const TextStyle(
+      displaySmall: TextStyle(
         fontSize: 28,
         fontWeight: FontWeight.w600,
         letterSpacing: 0,
         height: 1.3,
         color: textPrimaryDark,
       ),
-      headlineLarge: const TextStyle(
+      headlineLarge: TextStyle(
         fontSize: 26,
         fontWeight: FontWeight.w600,
         color: textPrimaryDark,
       ),
-      headlineMedium: const TextStyle(
+      headlineMedium: TextStyle(
         fontSize: 24,
         fontWeight: FontWeight.w600,
         color: textPrimaryDark,
       ),
-      headlineSmall: const TextStyle(
+      headlineSmall: TextStyle(
         fontSize: 22,
         fontWeight: FontWeight.w600,
         color: textPrimaryDark,
       ),
-      titleLarge: const TextStyle(
+      titleLarge: TextStyle(
         fontSize: 20,
         fontWeight: FontWeight.w600,
         color: textPrimaryDark,
       ),
-      titleMedium: const TextStyle(
+      titleMedium: TextStyle(
         fontSize: 18,
         fontWeight: FontWeight.w500,
         color: textPrimaryDark,
       ),
-      titleSmall: const TextStyle(
+      titleSmall: TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.w500,
         color: textPrimaryDark,
       ),
-      bodyLarge: const TextStyle(
+      bodyLarge: TextStyle(
         fontSize: 18,
         fontWeight: FontWeight.w400,
         height: 1.5,
         color: textPrimaryDark,
       ),
-      bodyMedium: const TextStyle(
+      bodyMedium: TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.w400,
         height: 1.5,
@@ -569,7 +569,7 @@ class AppTheme {
         height: 1.5,
         color: textSecondaryDark,
       ),
-      labelLarge: const TextStyle(
+      labelLarge: TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.w600,
         color: textPrimaryDark,
@@ -644,8 +644,8 @@ class AppTheme {
         borderRadius: BorderRadius.circular(radiusMedium),
         borderSide: const BorderSide(color: Color(0xFFF87171), width: 2),
       ),
-      labelStyle: TextStyle(fontSize: 16, color: textSecondaryDark),
-      hintStyle: TextStyle(fontSize: 16, color: textSecondaryDark),
+      labelStyle: const TextStyle(fontSize: 16, color: textSecondaryDark),
+      hintStyle: const TextStyle(fontSize: 16, color: textSecondaryDark),
       prefixIconColor: textSecondaryDark,
       suffixIconColor: textSecondaryDark,
     ),

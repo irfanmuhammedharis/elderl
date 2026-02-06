@@ -109,8 +109,8 @@ class _SignupScreenState extends ConsumerState<SignupScreen>
     final seniorEmail = _seniorEmailController.text.trim();
     if (seniorEmail.isEmpty) {
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Text('Please enter the senior\'s email'),
+        const SnackBar(
+          content: Text('Please enter the senior\'s email'),
           backgroundColor: AppTheme.errorColor,
           behavior: SnackBarBehavior.floating,
         ),
@@ -444,17 +444,15 @@ class _SignupScreenState extends ConsumerState<SignupScreen>
             width: 40,
             height: 40,
             decoration: BoxDecoration(
-              gradient: AppTheme.secondaryColor.withOpacity(0.15) != null
-                  ? LinearGradient(
+              gradient: LinearGradient(
                       colors: [
                         AppTheme.secondaryColor.withOpacity(0.15),
                         AppTheme.primaryColor.withOpacity(0.1),
                       ],
-                    )
-                  : null,
+                    ),
               borderRadius: BorderRadius.circular(10),
             ),
-            child: Icon(Icons.person_add, color: AppTheme.primaryColor, size: 22),
+            child: const Icon(Icons.person_add, color: AppTheme.primaryColor, size: 22),
           ),
           const SizedBox(width: 12),
           Text(
@@ -490,7 +488,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen>
                     color: AppTheme.primaryColor.withOpacity(0.1),
                     borderRadius: BorderRadius.circular(10),
                   ),
-                  child: Icon(Icons.badge_outlined, color: AppTheme.primaryColor, size: 24),
+                  child: const Icon(Icons.badge_outlined, color: AppTheme.primaryColor, size: 24),
                 ),
                 const SizedBox(width: 14),
                 Text(
@@ -720,9 +718,9 @@ class _SignupScreenState extends ConsumerState<SignupScreen>
                   controller: _seniorEmailController,
                   keyboardType: TextInputType.emailAddress,
                   style: const TextStyle(fontSize: 16),
-                  decoration: InputDecoration(
+                  decoration: const InputDecoration(
                     hintText: 'Senior\'s email address',
-                    prefixIcon: const Icon(Icons.email_outlined, size: 22),
+                    prefixIcon: Icon(Icons.email_outlined, size: 22),
                     filled: true,
                     fillColor: Colors.white,
                   ),
