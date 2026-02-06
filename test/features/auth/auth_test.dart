@@ -34,12 +34,14 @@ void main() {
     });
 
     test('should convert to/from Map correctly', () {
-      const user = AppUser(
+      final testDate = DateTime(2024, 1, 15, 10, 30);
+      final user = AppUser(
         uid: 'test-uid',
         email: 'test@example.com',
         name: 'Test User',
         role: 'caregiver',
         phone: '+1234567890',
+        createdAt: testDate, // Provide createdAt to avoid FieldValue.serverTimestamp() in toMap
       );
 
       final map = user.toMap();
