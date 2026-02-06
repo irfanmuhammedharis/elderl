@@ -61,7 +61,40 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
       return;
     }
 
-    if (user.role != 'admin' && user.approvalStatus != ApprovalStatus.approved) {
+    // Block admin users on Android - admin access is web-only
+    if (user.role == 'admin') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: const Row(
+            children: [
+              Icon(Icons.computer, color: Colors.white),
+              SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  'Admin access is available only on the web portal. Please use a browser to access the admin dashboard.',
+                ),
+              ),
+            ],
+          ),
+          backgroundColor: const Color(0xFF1565C0),
+          behavior: SnackBarBehavior.floating,
+          duration: const Duration(seconds: 5),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+          ),
+          action: SnackBarAction(
+            label: 'OK',
+            textColor: Colors.white,
+            onPressed: () {},
+          ),
+        ),
+      );
+      // Sign out the admin user on Android
+      ref.read(authControllerProvider.notifier).signOut();
+      return;
+    }
+
+    if (user.approvalStatus != ApprovalStatus.approved) {
       context.go(AppRoutes.pendingApproval);
       return;
     }
@@ -69,7 +102,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
     final route = switch (user.role) {
       'caregiver' => AppRoutes.caregiverHome,
       'family' => AppRoutes.familyHome,
-      'admin' => AppRoutes.adminHome,
       _ => AppRoutes.seniorHome,
     };
     context.go(route);
@@ -123,11 +155,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              AppTheme.primaryColor.withOpacity(0.05),
-              AppTheme.backgroundLight,
-              AppTheme.secondaryColor.withOpacity(0.03),
-            ],
+            colors: kIsWeb
+              ? [
+                  const Color(0xFF1565C0).withOpacity(0.05),
+                  AppTheme.backgroundLight,
+                  const Color(0xFF0D47A1).withOpacity(0.03),
+                ]
+              : [
+                  AppTheme.primaryColor.withOpacity(0.05),
+                  AppTheme.backgroundLight,
+                  AppTheme.secondaryColor.withOpacity(0.03),
+                ],
             stops: const [0.0, 0.5, 1.0],
           ),
         ),
@@ -165,14 +203,17 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                               crossAxisAlignment: CrossAxisAlignment.stretch,
                               children: [
                                 Text(
-                                  'Welcome Back',
+                                  kIsWeb ? 'Admin Sign In' : 'Welcome Back',
                                   style: Theme.of(context).textTheme.headlineMedium?.copyWith(
                                     fontWeight: FontWeight.w700,
+                                    color: kIsWeb ? const Color(0xFF1565C0) : null,
                                   ),
                                 ),
                                 const SizedBox(height: 8),
                                 Text(
-                                  'Sign in to continue to ElderL',
+                                  kIsWeb 
+                                    ? 'Manage user approvals and system settings'
+                                    : 'Sign in to continue to ElderL',
                                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                                     color: AppTheme.textSecondaryLight,
                                   ),
@@ -244,29 +285,66 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
                                 // Login Button
                                 _buildLoginButton(authState.isLoading),
-                                const SizedBox(height: 24),
+                                
+                                // Android Only - Signup Section
+                                if (!kIsWeb) ...[
+                                  const SizedBox(height: 24),
 
-                                // Divider
-                                Row(
-                                  children: [
-                                    const Expanded(child: Divider()),
-                                    Padding(
-                                      padding: const EdgeInsets.symmetric(horizontal: 16),
-                                      child: Text(
-                                        'OR',
-                                        style: Theme.of(context).textTheme.bodySmall,
+                                  // Divider
+                                  Row(
+                                    children: [
+                                      const Expanded(child: Divider()),
+                                      Padding(
+                                        padding: const EdgeInsets.symmetric(horizontal: 16),
+                                        child: Text(
+                                          'OR',
+                                          style: Theme.of(context).textTheme.bodySmall,
+                                        ),
+                                      ),
+                                      const Expanded(child: Divider()),
+                                    ],
+                                  ),
+                                  const SizedBox(height: 24),
+
+                                  // Sign Up Button
+                                  OutlinedButton(
+                                    onPressed: () => context.go(AppRoutes.signup),
+                                    child: const Text('Create New Account'),
+                                  ),
+                                ],
+                                
+                                // Web Only - Admin note
+                                if (kIsWeb) ...[
+                                  const SizedBox(height: 24),
+                                  Container(
+                                    padding: const EdgeInsets.all(16),
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFF1565C0).withOpacity(0.05),
+                                      borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                                      border: Border.all(
+                                        color: const Color(0xFF1565C0).withOpacity(0.2),
                                       ),
                                     ),
-                                    const Expanded(child: Divider()),
-                                  ],
-                                ),
-                                const SizedBox(height: 24),
-
-                                // Sign Up Button
-                                OutlinedButton(
-                                  onPressed: () => context.go(AppRoutes.signup),
-                                  child: const Text('Create New Account'),
-                                ),
+                                    child: Row(
+                                      children: [
+                                        Icon(
+                                          Icons.info_outline,
+                                          color: const Color(0xFF1565C0),
+                                          size: 20,
+                                        ),
+                                        const SizedBox(width: 12),
+                                        Expanded(
+                                          child: Text(
+                                            'This portal is for administrators only. Users should use the mobile app.',
+                                            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                                              color: const Color(0xFF1565C0),
+                                            ),
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ],
                               ],
                             ),
                           ),
@@ -274,10 +352,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                       ),
                       const SizedBox(height: 24),
 
-                      // Dev Link (smaller, less prominent)
-                      TextButton.icon(
-                        onPressed: () => context.go(AppRoutes.createTestUsers),
-                        icon: Icon(
+                      // Dev Link (Android only - smaller, less prominent)
+                      if (!kIsWeb)
+                        TextButton.icon(
+                          onPressed: () => context.go(AppRoutes.createTestUsers),
+                          icon: Icon(
                           Icons.developer_mode,
                           size: 16,
                           color: AppTheme.textSecondaryLight.withOpacity(0.6),
@@ -302,6 +381,72 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   Widget _buildLogoSection(BuildContext context) {
+    // Web Admin Portal - Different branding
+    if (kIsWeb) {
+      return Column(
+        children: [
+          // Admin Portal Logo
+          Container(
+            width: 100,
+            height: 100,
+            decoration: BoxDecoration(
+              gradient: const LinearGradient(
+                colors: [Color(0xFF1565C0), Color(0xFF0D47A1)],
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+              ),
+              borderRadius: BorderRadius.circular(24),
+              boxShadow: AppTheme.elevatedShadow,
+            ),
+            child: const Icon(
+              Icons.admin_panel_settings,
+              size: 56,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(height: 20),
+          Text(
+            'ElderL Admin',
+            style: Theme.of(context).textTheme.displaySmall?.copyWith(
+              color: const Color(0xFF1565C0),
+              fontWeight: FontWeight.w800,
+              letterSpacing: -1,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            decoration: BoxDecoration(
+              color: const Color(0xFF1565C0).withOpacity(0.1),
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(
+                color: const Color(0xFF1565C0).withOpacity(0.3),
+              ),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  Icons.security,
+                  size: 18,
+                  color: const Color(0xFF1565C0),
+                ),
+                const SizedBox(width: 8),
+                Text(
+                  'Administration Portal',
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: const Color(0xFF1565C0),
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+    }
+
+    // Android App - Regular branding
     return Column(
       children: [
         // Animated Logo Container
@@ -384,16 +529,24 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
   }
 
   Widget _buildLoginButton(bool isLoading) {
+    final adminGradient = const LinearGradient(
+      colors: [Color(0xFF1565C0), Color(0xFF0D47A1)],
+      begin: Alignment.topLeft,
+      end: Alignment.bottomRight,
+    );
+    
     return AnimatedContainer(
       duration: AppTheme.animationFast,
       height: 60,
       decoration: BoxDecoration(
-        gradient: isLoading ? null : AppTheme.primaryGradient,
+        gradient: isLoading ? null : (kIsWeb ? adminGradient : AppTheme.primaryGradient),
         borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
         boxShadow: isLoading ? null : AppTheme.elevatedShadow,
       ),
       child: Material(
-        color: isLoading ? AppTheme.primaryColor.withOpacity(0.7) : Colors.transparent,
+        color: isLoading 
+          ? (kIsWeb ? const Color(0xFF1565C0).withOpacity(0.7) : AppTheme.primaryColor.withOpacity(0.7)) 
+          : Colors.transparent,
         borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
         child: InkWell(
           onTap: isLoading ? null : _handleLogin,
@@ -408,14 +561,18 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                       valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
                     ),
                   )
-                : const Row(
+                : Row(
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
-                      Icon(Icons.login, color: Colors.white, size: 24),
-                      SizedBox(width: 12),
+                      Icon(
+                        kIsWeb ? Icons.admin_panel_settings : Icons.login, 
+                        color: Colors.white, 
+                        size: 24,
+                      ),
+                      const SizedBox(width: 12),
                       Text(
-                        'Sign In',
-                        style: TextStyle(
+                        kIsWeb ? 'Access Admin Portal' : 'Sign In',
+                        style: const TextStyle(
                           color: Colors.white,
                           fontSize: 18,
                           fontWeight: FontWeight.w600,

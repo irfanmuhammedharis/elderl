@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/routing/app_router.dart';
+import '../../../../core/theme/app_theme.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../../requests/data/request_repository.dart';
 import '../../../emergency/data/emergency_repository.dart';
@@ -15,432 +16,591 @@ final pendingRequestsStreamProvider = StreamProvider<List<HelpRequest>>((ref) {
 });
 
 /// Stream provider for my assigned requests
-final myAssignedRequestsStreamProvider = StreamProvider.family<List<HelpRequest>, String>((ref, caregiverId) {
+final myAssignedRequestsStreamProvider =
+    StreamProvider.family<List<HelpRequest>, String>((ref, caregiverId) {
   final repo = ref.watch(caregiverRepositoryProvider);
   return repo.streamMyAssignedRequests(caregiverId);
 });
 
 /// Stream provider for active emergencies
-final activeEmergenciesStreamProvider = StreamProvider<List<EmergencyAlert>>((ref) {
+final activeEmergenciesStreamProvider =
+    StreamProvider<List<EmergencyAlert>>((ref) {
   final repo = ref.watch(emergencyRepositoryProvider);
   return repo.streamActiveEmergencies();
 });
 
-class CaregiverHomeScreen extends ConsumerWidget {
+class CaregiverHomeScreen extends ConsumerStatefulWidget {
   const CaregiverHomeScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CaregiverHomeScreen> createState() =>
+      _CaregiverHomeScreenState();
+}
+
+class _CaregiverHomeScreenState extends ConsumerState<CaregiverHomeScreen>
+    with SingleTickerProviderStateMixin {
+  late AnimationController _fadeController;
+  late Animation<double> _fadeAnimation;
+  int _currentNavIndex = 0;
+
+  static const _brandColor = Color(0xFF26A69A);
+  static const _brandDark = Color(0xFF00897B);
+
+  @override
+  void initState() {
+    super.initState();
+    _fadeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 600),
+    );
+    _fadeAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
+      CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
+    );
+    _fadeController.forward();
+  }
+
+  @override
+  void dispose() {
+    _fadeController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final authState = ref.watch(authControllerProvider);
     final user = authState.user;
     final userId = user?.uid ?? '';
-    
-    final pendingRequestsAsync = ref.watch(pendingRequestsStreamProvider);
+
+    final pendingAsync = ref.watch(pendingRequestsStreamProvider);
     final myTasksAsync = ref.watch(myAssignedRequestsStreamProvider(userId));
     final emergenciesAsync = ref.watch(activeEmergenciesStreamProvider);
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('ElderL Caregiver'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.message_outlined),
-            onPressed: () => context.push(AppRoutes.conversations),
-            tooltip: 'Messages',
+      body: Container(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [
+              _brandColor.withOpacity(0.08),
+              AppTheme.backgroundLight,
+              AppTheme.backgroundLight,
+            ],
+            stops: const [0.0, 0.3, 1.0],
           ),
-          IconButton(
-            icon: const Icon(Icons.person_outline),
-            onPressed: () => context.push(AppRoutes.profile),
-            tooltip: 'Profile',
-          ),
-        ],
-      ),
-      body: SafeArea(
-        child: RefreshIndicator(
-          onRefresh: () async {
-            ref.invalidate(pendingRequestsStreamProvider);
-            ref.invalidate(myAssignedRequestsStreamProvider(userId));
-            ref.invalidate(activeEmergenciesStreamProvider);
-          },
-          child: SingleChildScrollView(
-            physics: const AlwaysScrollableScrollPhysics(),
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // Welcome Card
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            CircleAvatar(
-                              radius: 30,
-                              backgroundColor: Theme.of(context).colorScheme.primary,
-                              child: Text(
-                                (user?.name ?? 'C')[0].toUpperCase(),
-                                style: const TextStyle(
-                                  fontSize: 24,
-                                  color: Colors.white,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                            ),
-                            const SizedBox(width: 16),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    'Welcome back,',
-                                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                          color: Colors.grey[600],
-                                        ),
-                                  ),
-                                  Text(
-                                    user?.name ?? 'Caregiver',
-                                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                                          fontWeight: FontWeight.bold,
-                                        ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          ],
-                        ),
-                      ],
+        ),
+        child: SafeArea(
+          child: Column(
+            children: [
+              _buildAppBar(context, ref),
+              Expanded(
+                child: FadeTransition(
+                  opacity: _fadeAnimation,
+                  child: RefreshIndicator(
+                    color: _brandColor,
+                    onRefresh: () async {
+                      ref.invalidate(pendingRequestsStreamProvider);
+                      ref.invalidate(
+                          myAssignedRequestsStreamProvider(userId));
+                      ref.invalidate(activeEmergenciesStreamProvider);
+                    },
+                    child: SingleChildScrollView(
+                      physics: const AlwaysScrollableScrollPhysics(),
+                      padding: const EdgeInsets.all(20),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          _buildWelcomeCard(context, user),
+                          const SizedBox(height: 24),
+                          _buildStatsRow(pendingAsync, myTasksAsync,
+                              emergenciesAsync),
+                          const SizedBox(height: 28),
+                          _buildSection(
+                            context,
+                            'Active Emergencies',
+                            Icons.emergency,
+                            AppTheme.emergencyColor,
+                          ),
+                          const SizedBox(height: 12),
+                          emergenciesAsync.when(
+                            loading: () => _shimmer(),
+                            error: (e, _) => _errorCard(e.toString()),
+                            data: (d) => _buildEmergencies(context, ref, d),
+                          ),
+                          const SizedBox(height: 24),
+                          _buildSection(context, 'Pending Requests',
+                              Icons.pending_actions, AppTheme.warningColor),
+                          const SizedBox(height: 12),
+                          pendingAsync.when(
+                            loading: () => _shimmer(),
+                            error: (e, _) => _errorCard(e.toString()),
+                            data: (d) => _buildPending(
+                                context, ref, d, user?.name ?? 'C', userId),
+                          ),
+                          const SizedBox(height: 24),
+                          _buildSection(context, 'My Tasks',
+                              Icons.assignment, AppTheme.infoColor),
+                          const SizedBox(height: 12),
+                          myTasksAsync.when(
+                            loading: () => _shimmer(),
+                            error: (e, _) => _errorCard(e.toString()),
+                            data: (d) => _buildTasks(context, ref, d),
+                          ),
+                          const SizedBox(height: 24),
+                          _buildSection(context, 'Quick Actions',
+                              Icons.flash_on, AppTheme.accentColor),
+                          const SizedBox(height: 12),
+                          _buildQuickActions(context),
+                          const SizedBox(height: 24),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-                const SizedBox(height: 20),
-
-                // Active Emergencies Section
-                _buildSectionHeader(context, 'Active Emergencies', Icons.emergency, Colors.red),
-                const SizedBox(height: 12),
-                emergenciesAsync.when(
-                  loading: () => const Card(child: Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()))),
-                  error: (e, _) => Card(child: ListTile(leading: const Icon(Icons.error, color: Colors.red), title: Text('Error: $e'))),
-                  data: (emergencies) => _buildEmergencySection(context, ref, emergencies),
-                ),
-                const SizedBox(height: 24),
-
-                // Pending Requests Section
-                _buildSectionHeader(context, 'Pending Requests', Icons.pending_actions, Colors.orange),
-                const SizedBox(height: 12),
-                pendingRequestsAsync.when(
-                  loading: () => const Card(child: Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()))),
-                  error: (e, _) => Card(child: ListTile(leading: const Icon(Icons.error, color: Colors.red), title: Text('Error: $e'))),
-                  data: (requests) => _buildPendingRequestsList(context, ref, requests, user?.name ?? 'Caregiver', userId),
-                ),
-                const SizedBox(height: 24),
-
-                // My Assigned Tasks Section
-                _buildSectionHeader(context, 'My Tasks', Icons.assignment, Colors.blue),
-                const SizedBox(height: 12),
-                myTasksAsync.when(
-                  loading: () => const Card(child: Center(child: Padding(padding: EdgeInsets.all(20), child: CircularProgressIndicator()))),
-                  error: (e, _) => Card(child: ListTile(leading: const Icon(Icons.error, color: Colors.red), title: Text('Error: $e'))),
-                  data: (tasks) => _buildMyTasksList(context, ref, tasks),
-                ),
-                const SizedBox(height: 24),
-
-                // Quick Actions
-                _buildSectionHeader(context, 'Quick Actions', Icons.flash_on, Colors.amber),
-                const SizedBox(height: 12),
-                Row(
-                  children: [
-                    Expanded(
-                      child: _buildQuickActionCard(
-                        context,
-                        icon: Icons.list_alt,
-                        label: 'All Requests',
-                        color: Colors.green,
-                        onTap: () => context.push(AppRoutes.caregiverRequests),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildQuickActionCard(
-                        context,
-                        icon: Icons.history,
-                        label: 'History',
-                        color: Colors.purple,
-                        onTap: () => context.push(AppRoutes.caregiverHistory),
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: _buildQuickActionCard(
-                        context,
-                        icon: Icons.people,
-                        label: 'Seniors',
-                        color: Colors.teal,
-                        onTap: () => context.push(AppRoutes.caregiverSeniors),
-                      ),
-                    ),
-                  ],
-                ),
-              ],
-            ),
+              ),
+            ],
           ),
         ),
       ),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: 0,
-        onDestinationSelected: (index) {
-          switch (index) {
-            case 0:
-              break;
-            case 1:
-              context.push(AppRoutes.caregiverRequests);
-              break;
-            case 2:
-              context.push(AppRoutes.caregiverSeniors);
-              break;
-            case 3:
-              context.push(AppRoutes.profile);
-              break;
-          }
-        },
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.home_outlined),
-            selectedIcon: Icon(Icons.home),
-            label: 'Home',
+      bottomNavigationBar: _buildBottomNav(context),
+    );
+  }
+
+  // ───────────── APP BAR ─────────────
+  Widget _buildAppBar(BuildContext context, WidgetRef ref) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(color: Colors.white, boxShadow: [
+        BoxShadow(
+            color: Colors.black.withOpacity(0.05),
+            blurRadius: 10,
+            offset: const Offset(0, 2))
+      ]),
+      child: Row(children: [
+        Container(
+          width: 44,
+          height: 44,
+          decoration: BoxDecoration(
+            gradient: const LinearGradient(colors: [_brandColor, _brandDark]),
+            borderRadius: BorderRadius.circular(12),
           ),
-          NavigationDestination(
-            icon: Icon(Icons.assignment_outlined),
-            selectedIcon: Icon(Icons.assignment),
-            label: 'Requests',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.people_outlined),
-            selectedIcon: Icon(Icons.people),
-            label: 'Seniors',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.person_outlined),
-            selectedIcon: Icon(Icons.person),
-            label: 'Profile',
-          ),
+          child:
+              const Icon(Icons.volunteer_activism, color: Colors.white, size: 26),
+        ),
+        const SizedBox(width: 12),
+        Text('ElderL',
+            style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                color: _brandColor, fontWeight: FontWeight.w700)),
+        const Spacer(),
+        _iconBtn(Icons.message, AppTheme.infoColor,
+            () => context.push(AppRoutes.conversations)),
+        _iconBtn(Icons.person, _brandColor,
+            () => context.push(AppRoutes.profile)),
+        _iconBtn(Icons.logout, AppTheme.errorColor, () async {
+          await ref.read(authControllerProvider.notifier).signOut();
+          if (context.mounted) context.go(AppRoutes.login);
+        }),
+      ]),
+    );
+  }
+
+  Widget _iconBtn(IconData icon, Color c, VoidCallback onTap) {
+    return IconButton(
+      icon: Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+          color: c.withOpacity(0.1),
+          borderRadius: BorderRadius.circular(10),
+        ),
+        child: Icon(icon, size: 22, color: c),
+      ),
+      onPressed: onTap,
+    );
+  }
+
+  // ───────────── WELCOME ─────────────
+  Widget _buildWelcomeCard(BuildContext context, dynamic user) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+            colors: [_brandColor, _brandDark],
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight),
+        borderRadius: BorderRadius.circular(AppTheme.radiusXLarge),
+        boxShadow: [
+          BoxShadow(
+              color: _brandColor.withOpacity(0.35),
+              blurRadius: 16,
+              offset: const Offset(0, 6))
         ],
       ),
-    );
-  }
-
-  Widget _buildSectionHeader(BuildContext context, String title, IconData icon, Color color) {
-    return Row(
-      children: [
-        Icon(icon, color: color, size: 24),
-        const SizedBox(width: 8),
-        Text(
-          title,
-          style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildEmergencySection(BuildContext context, WidgetRef ref, List<EmergencyAlert> emergencies) {
-    if (emergencies.isEmpty) {
-      return Card(
-        color: Colors.green.shade50,
-        child: const ListTile(
-          leading: CircleAvatar(
-            backgroundColor: Colors.green,
-            child: Icon(Icons.check, color: Colors.white),
-          ),
-          title: Text('No Active Emergencies', style: TextStyle(fontWeight: FontWeight.bold)),
-          subtitle: Text('All seniors are safe'),
-          trailing: Icon(Icons.check_circle, color: Colors.green, size: 32),
-        ),
-      );
-    }
-
-    return Card(
-      color: Colors.red.shade50,
-      child: Column(
-        children: emergencies.take(3).map((emergency) {
-          return ListTile(
-            leading: const CircleAvatar(
-              backgroundColor: Colors.red,
-              child: Icon(Icons.emergency, color: Colors.white),
-            ),
-            title: Text(emergency.seniorName, style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text('${_formatTimeAgo(emergency.createdAtDateTime)} • ${emergency.status}'),
-            trailing: ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              onPressed: () async {
-                final authState = ref.read(authControllerProvider);
-                final repo = ref.read(emergencyRepositoryProvider);
-                await repo.respondToEmergency(
-                  emergency.id!,
-                  authState.user?.uid ?? '',
-                  authState.user?.name ?? 'Caregiver',
-                );
-              },
-              child: const Text('Respond', style: TextStyle(color: Colors.white)),
-            ),
-          );
-        }).toList(),
-      ),
-    );
-  }
-
-  Widget _buildPendingRequestsList(BuildContext context, WidgetRef ref, List<HelpRequest> requests, String caregiverName, String caregiverId) {
-    if (requests.isEmpty) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(20),
+      child: Row(children: [
+        Expanded(
           child: Column(
-            children: [
-              Icon(Icons.inbox, size: 48, color: Colors.grey[400]),
-              const SizedBox(height: 8),
-              Text(
-                'No pending requests',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey[600]),
-              ),
-            ],
-          ),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(children: [
+                  const Icon(Icons.wb_sunny, color: Colors.white70, size: 22),
+                  const SizedBox(width: 8),
+                  Text(_greeting(),
+                      style: Theme.of(context)
+                          .textTheme
+                          .bodyLarge
+                          ?.copyWith(color: Colors.white70)),
+                ]),
+                const SizedBox(height: 8),
+                Text(user?.name ?? 'Caregiver',
+                    style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                        color: Colors.white, fontWeight: FontWeight.w700)),
+                const SizedBox(height: 4),
+                Text('Ready to help seniors today',
+                    style: Theme.of(context)
+                        .textTheme
+                        .bodyMedium
+                        ?.copyWith(color: Colors.white70)),
+              ]),
         ),
-      );
-    }
-
-    return Card(
-      child: Column(
-        children: requests.take(5).map((request) {
-          return Column(
-            children: [
-              ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: _getRequestColor(request.type).withOpacity(0.2),
-                  child: Icon(_getRequestIcon(request.type), color: _getRequestColor(request.type)),
-                ),
-                title: Text(
-                  '${request.type.toUpperCase()} Request',
-                  style: const TextStyle(fontWeight: FontWeight.w600),
-                ),
-                subtitle: Text('${request.seniorName} • ${_formatTimeAgo(request.createdAt)}'),
-                trailing: ElevatedButton(
-                  onPressed: () async {
-                    final repo = ref.read(caregiverRepositoryProvider);
-                    await repo.acceptRequest(request.id!, caregiverId, caregiverName);
-                    if (context.mounted) {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(content: Text('Request accepted!'), backgroundColor: Colors.green),
-                      );
-                    }
-                  },
-                  child: const Text('Accept'),
-                ),
-              ),
-              if (requests.indexOf(request) < requests.length - 1) const Divider(height: 1),
-            ],
-          );
-        }).toList(),
-      ),
+        Container(
+          width: 64,
+          height: 64,
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(18),
+          ),
+          child: Center(
+              child: Text((user?.name ?? 'C')[0].toUpperCase(),
+                  style: const TextStyle(
+                      fontSize: 28,
+                      color: Colors.white,
+                      fontWeight: FontWeight.bold))),
+        ),
+      ]),
     );
   }
 
-  Widget _buildMyTasksList(BuildContext context, WidgetRef ref, List<HelpRequest> tasks) {
-    // Filter to only show in-progress tasks
-    final activeTasks = tasks.where((t) => t.status == 'accepted' || t.status == 'in_progress').toList();
-    
-    if (activeTasks.isEmpty) {
-      return Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            children: [
-              const Icon(Icons.assignment_turned_in, size: 48, color: Colors.grey),
-              const SizedBox(height: 8),
-              Text(
-                'No active tasks',
-                style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.grey[600]),
-              ),
-              const SizedBox(height: 4),
-              Text(
-                'Accept a request to start helping',
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(color: Colors.grey),
-              ),
-            ],
-          ),
-        ),
-      );
-    }
+  // ───────────── STATS ─────────────
+  Widget _buildStatsRow(
+    AsyncValue<List<HelpRequest>> pend,
+    AsyncValue<List<HelpRequest>> tasks,
+    AsyncValue<List<EmergencyAlert>> emerg,
+  ) {
+    return Row(children: [
+      Expanded(
+          child: _stat(
+              'Pending',
+              pend.whenOrNull(data: (d) => '${d.length}') ?? '-',
+              Icons.pending_actions,
+              AppTheme.warningColor)),
+      const SizedBox(width: 12),
+      Expanded(
+          child: _stat(
+              'My Tasks',
+              tasks.whenOrNull(
+                      data: (d) =>
+                          '${d.where((t) => t.status == 'accepted' || t.status == 'in_progress').length}') ??
+                  '-',
+              Icons.assignment,
+              AppTheme.infoColor)),
+      const SizedBox(width: 12),
+      Expanded(
+          child: _stat(
+              'Alerts',
+              emerg.whenOrNull(data: (d) => '${d.length}') ?? '-',
+              Icons.emergency,
+              AppTheme.emergencyColor)),
+    ]);
+  }
 
-    return Card(
-      child: Column(
-        children: activeTasks.take(3).map((task) {
-          return Column(
-            children: [
-              ListTile(
-                leading: CircleAvatar(
-                  backgroundColor: _getRequestColor(task.type).withOpacity(0.2),
-                  child: Icon(_getRequestIcon(task.type), color: _getRequestColor(task.type)),
-                ),
-                title: Text(task.seniorName, style: const TextStyle(fontWeight: FontWeight.w600)),
-                subtitle: Text('${task.type} • ${task.status}'),
-                trailing: task.status == 'accepted'
-                    ? ElevatedButton(
-                        onPressed: () async {
-                          final repo = ref.read(caregiverRepositoryProvider);
-                          await repo.markInProgress(task.id!);
-                        },
-                        child: const Text('Start'),
-                      )
-                    : ElevatedButton(
-                        style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-                        onPressed: () async {
-                          final repo = ref.read(caregiverRepositoryProvider);
-                          await repo.completeRequest(task.id!);
-                          if (context.mounted) {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(content: Text('Task completed!'), backgroundColor: Colors.green),
-                            );
-                          }
-                        },
-                        child: const Text('Complete', style: TextStyle(color: Colors.white)),
-                      ),
-              ),
-              if (activeTasks.indexOf(task) < activeTasks.length - 1) const Divider(height: 1),
-            ],
-          );
-        }).toList(),
+  Widget _stat(String label, String val, IconData icon, Color c) {
+    return Container(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        boxShadow: AppTheme.cardShadow,
+        border: Border.all(color: c.withOpacity(0.15)),
       ),
+      child: Column(children: [
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+              color: c.withOpacity(0.1),
+              borderRadius: BorderRadius.circular(10)),
+          child: Icon(icon, color: c, size: 22),
+        ),
+        const SizedBox(height: 10),
+        Text(val,
+            style:
+                TextStyle(fontSize: 24, fontWeight: FontWeight.w700, color: c)),
+        const SizedBox(height: 4),
+        Text(label,
+            style: const TextStyle(
+                fontSize: 12,
+                color: AppTheme.textSecondaryLight,
+                fontWeight: FontWeight.w500)),
+      ]),
     );
   }
 
-  Widget _buildQuickActionCard(
-    BuildContext context, {
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return Card(
+  // ───────────── SECTION HEADER ─────────────
+  Widget _buildSection(
+      BuildContext context, String title, IconData icon, Color c) {
+    return Row(children: [
+      Container(
+        padding: const EdgeInsets.all(8),
+        decoration: BoxDecoration(
+            color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+        child: Icon(icon, color: c, size: 20),
+      ),
+      const SizedBox(width: 12),
+      Text(title,
+          style: Theme.of(context)
+              .textTheme
+              .titleLarge
+              ?.copyWith(fontWeight: FontWeight.w600)),
+    ]);
+  }
+
+  // ───────────── EMERGENCIES ─────────────
+  Widget _buildEmergencies(
+      BuildContext context, WidgetRef ref, List<EmergencyAlert> list) {
+    if (list.isEmpty) {
+      return _successBanner('All Clear', 'No active emergencies right now');
+    }
+    return _card(
+      Column(
+        children: list.take(3).map((e) {
+          final isLast = e == list.take(3).last;
+          return Column(children: [
+            Padding(
+              padding: const EdgeInsets.all(16),
+              child: Row(children: [
+                _iconCircle(Icons.emergency, AppTheme.emergencyColor),
+                const SizedBox(width: 14),
+                Expanded(
+                    child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                      Text(e.seniorName,
+                          style: const TextStyle(
+                              fontWeight: FontWeight.w600, fontSize: 16)),
+                      const SizedBox(height: 2),
+                      Text(
+                          '${_timeAgo(e.createdAtDateTime)} • ${e.status}',
+                          style: const TextStyle(
+                              fontSize: 13,
+                              color: AppTheme.textSecondaryLight)),
+                    ])),
+                _gradBtn('Respond', [AppTheme.emergencyColor, const Color(0xFFDC2626)],
+                    Icons.bolt, () async {
+                  final auth = ref.read(authControllerProvider);
+                  await ref.read(emergencyRepositoryProvider).respondToEmergency(
+                      e.id!, auth.user?.uid ?? '', auth.user?.name ?? 'Caregiver');
+                }),
+              ]),
+            ),
+            if (!isLast)
+              Divider(
+                  height: 1,
+                  color: Colors.grey.shade200,
+                  indent: 16,
+                  endIndent: 16),
+          ]);
+        }).toList(),
+      ),
+      borderColor: AppTheme.emergencyColor,
+    );
+  }
+
+  // ───────────── PENDING ─────────────
+  Widget _buildPending(BuildContext context, WidgetRef ref,
+      List<HelpRequest> list, String name, String uid) {
+    if (list.isEmpty) {
+      return _empty(Icons.inbox_rounded, 'No pending requests',
+          'New requests will appear here');
+    }
+    return _card(Column(
+      children: list.take(5).map((r) {
+        final isLast = r == list.take(5).last;
+        final c = _typeColor(r.type);
+        return Column(children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(children: [
+              _iconCircle(_typeIcon(r.type), c),
+              const SizedBox(width: 14),
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    Text(
+                        '${r.type[0].toUpperCase()}${r.type.substring(1)} Request',
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 15)),
+                    const SizedBox(height: 2),
+                    Text('${r.seniorName} • ${_timeAgo(r.createdAt)}',
+                        style: const TextStyle(
+                            fontSize: 13, color: AppTheme.textSecondaryLight)),
+                  ])),
+              _gradBtn('Accept', [_brandColor, _brandDark], Icons.check,
+                  () async {
+                await ref
+                    .read(caregiverRepositoryProvider)
+                    .acceptRequest(r.id!, uid, name);
+                if (context.mounted) _snack(context, 'Request accepted!');
+              }),
+            ]),
+          ),
+          if (!isLast)
+            Divider(
+                height: 1,
+                color: Colors.grey.shade200,
+                indent: 16,
+                endIndent: 16),
+        ]);
+      }).toList(),
+    ));
+  }
+
+  // ───────────── MY TASKS ─────────────
+  Widget _buildTasks(
+      BuildContext context, WidgetRef ref, List<HelpRequest> list) {
+    final active = list
+        .where((t) => t.status == 'accepted' || t.status == 'in_progress')
+        .toList();
+    if (active.isEmpty) {
+      return _empty(Icons.assignment_turned_in_rounded, 'No active tasks',
+          'Accept a request to start helping');
+    }
+    return _card(Column(
+      children: active.take(3).map((t) {
+        final isLast = t == active.take(3).last;
+        final c = _typeColor(t.type);
+        return Column(children: [
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Row(children: [
+              _iconCircle(_typeIcon(t.type), c),
+              const SizedBox(width: 14),
+              Expanded(
+                  child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                    Text(t.seniorName,
+                        style: const TextStyle(
+                            fontWeight: FontWeight.w600, fontSize: 15)),
+                    const SizedBox(height: 4),
+                    Row(children: [
+                      _chip(t.type[0].toUpperCase() + t.type.substring(1), c),
+                      const SizedBox(width: 8),
+                      _chip(t.status.replaceAll('_', ' '), AppTheme.infoColor),
+                    ]),
+                  ])),
+              t.status == 'accepted'
+                  ? _gradBtn('Start', [AppTheme.infoColor, const Color(0xFF2563EB)],
+                      Icons.play_arrow, () async {
+                      await ref
+                          .read(caregiverRepositoryProvider)
+                          .markInProgress(t.id!);
+                    })
+                  : _gradBtn(
+                      'Done',
+                      [AppTheme.successColor, const Color(0xFF16A34A)],
+                      Icons.check_circle, () async {
+                      await ref
+                          .read(caregiverRepositoryProvider)
+                          .completeRequest(t.id!);
+                      if (context.mounted) _snack(context, 'Task completed! 🎉');
+                    }),
+            ]),
+          ),
+          if (!isLast)
+            Divider(
+                height: 1,
+                color: Colors.grey.shade200,
+                indent: 16,
+                endIndent: 16),
+        ]);
+      }).toList(),
+    ));
+  }
+
+  // ───────────── QUICK ACTIONS ─────────────
+  Widget _buildQuickActions(BuildContext context) {
+    return Row(children: [
+      Expanded(
+          child: _actionCard(context, Icons.list_alt, 'All Requests',
+              AppTheme.successColor, () => context.push(AppRoutes.caregiverRequests))),
+      const SizedBox(width: 12),
+      Expanded(
+          child: _actionCard(context, Icons.history, 'History',
+              AppTheme.accentColor, () => context.push(AppRoutes.caregiverHistory))),
+      const SizedBox(width: 12),
+      Expanded(
+          child: _actionCard(context, Icons.people, 'Seniors', _brandColor,
+              () => context.push(AppRoutes.caregiverSeniors))),
+    ]);
+  }
+
+  Widget _actionCard(BuildContext ctx, IconData icon, String label, Color c,
+      VoidCallback onTap) {
+    return Material(
+      color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 12),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+            boxShadow: AppTheme.cardShadow,
+            border: Border.all(color: c.withOpacity(0.15)),
+          ),
+          child: Column(children: [
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(
+                  color: c.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12)),
+              child: Icon(icon, color: c, size: 26),
+            ),
+            const SizedBox(height: 10),
+            Text(label,
+                style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13,
+                    color: AppTheme.textPrimaryLight),
+                textAlign: TextAlign.center),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  // ───────────── BOTTOM NAV ─────────────
+  Widget _buildBottomNav(BuildContext context) {
+    return Container(
+      decoration: BoxDecoration(color: Colors.white, boxShadow: [
+        BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 20,
+            offset: const Offset(0, -4))
+      ]),
+      child: SafeArea(
         child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
+          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              CircleAvatar(
-                backgroundColor: color.withOpacity(0.2),
-                child: Icon(icon, color: color),
-              ),
-              const SizedBox(height: 8),
-              Text(
-                label,
-                style: const TextStyle(fontWeight: FontWeight.w500),
-                textAlign: TextAlign.center,
-              ),
+              _nav(Icons.home_rounded, 'Home', 0, _brandColor, () {}),
+              _nav(Icons.assignment_rounded, 'Requests', 1, AppTheme.warningColor,
+                  () => context.push(AppRoutes.caregiverRequests)),
+              _nav(Icons.people_rounded, 'Seniors', 2, AppTheme.infoColor,
+                  () => context.push(AppRoutes.caregiverSeniors)),
+              _nav(Icons.person_rounded, 'Profile', 3, AppTheme.accentColor,
+                  () => context.push(AppRoutes.profile)),
             ],
           ),
         ),
@@ -448,8 +608,231 @@ class CaregiverHomeScreen extends ConsumerWidget {
     );
   }
 
-  IconData _getRequestIcon(String type) {
-    switch (type.toLowerCase()) {
+  Widget _nav(IconData icon, String label, int i, Color c, VoidCallback onTap) {
+    final active = _currentNavIndex == i;
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: () {
+          if (i != _currentNavIndex) {
+            setState(() => _currentNavIndex = i);
+            onTap();
+          }
+        },
+        borderRadius: BorderRadius.circular(12),
+        child: AnimatedContainer(
+          duration: AppTheme.animationFast,
+          padding: EdgeInsets.symmetric(
+              horizontal: active ? 20 : 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: active ? c.withOpacity(0.1) : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon,
+                color: active ? c : AppTheme.textSecondaryLight, size: 24),
+            if (active) ...[
+              const SizedBox(width: 8),
+              Text(label,
+                  style: TextStyle(
+                      color: c, fontWeight: FontWeight.w600, fontSize: 13)),
+            ],
+          ]),
+        ),
+      ),
+    );
+  }
+
+  // ───────────── REUSABLE PIECES ─────────────
+  Widget _card(Widget child, {Color? borderColor}) {
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        boxShadow: AppTheme.cardShadow,
+        border: borderColor != null
+            ? Border.all(color: borderColor.withOpacity(0.2))
+            : null,
+      ),
+      child: child,
+    );
+  }
+
+  Widget _iconCircle(IconData icon, Color c) {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+          color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(10)),
+      child: Icon(icon, color: c, size: 24),
+    );
+  }
+
+  Widget _chip(String text, Color c) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+          color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
+      child: Text(text,
+          style:
+              TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: c)),
+    );
+  }
+
+  Widget _gradBtn(
+      String label, List<Color> colors, IconData icon, VoidCallback onTap) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(colors: colors),
+            borderRadius: BorderRadius.circular(10),
+            boxShadow: [
+              BoxShadow(
+                  color: colors.first.withOpacity(0.3),
+                  blurRadius: 8,
+                  offset: const Offset(0, 3))
+            ],
+          ),
+          child: Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(icon, color: Colors.white, size: 16),
+            const SizedBox(width: 6),
+            Text(label,
+                style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w600,
+                    fontSize: 13)),
+          ]),
+        ),
+      ),
+    );
+  }
+
+  Widget _successBanner(String title, String subtitle) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: AppTheme.successColor.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        border: Border.all(color: AppTheme.successColor.withOpacity(0.2)),
+      ),
+      child: Row(children: [
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+              color: AppTheme.successColor.withOpacity(0.15),
+              borderRadius: BorderRadius.circular(12)),
+          child: const Icon(Icons.check_circle,
+              color: AppTheme.successColor, size: 28),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+            child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+              Text(title,
+                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                      color: AppTheme.successColor)),
+              const SizedBox(height: 2),
+              Text(subtitle,
+                  style: const TextStyle(
+                      color: AppTheme.textSecondaryLight, fontSize: 14)),
+            ])),
+      ]),
+    );
+  }
+
+  Widget _empty(IconData icon, String title, String sub) {
+    return Container(
+      padding: const EdgeInsets.all(28),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: Column(children: [
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+              color: AppTheme.backgroundLight,
+              borderRadius: BorderRadius.circular(16)),
+          child: Icon(icon, size: 40, color: AppTheme.textSecondaryLight),
+        ),
+        const SizedBox(height: 14),
+        Text(title,
+            style: const TextStyle(
+                fontWeight: FontWeight.w600,
+                fontSize: 16,
+                color: AppTheme.textPrimaryLight)),
+        const SizedBox(height: 4),
+        Text(sub,
+            style: const TextStyle(
+                fontSize: 13, color: AppTheme.textSecondaryLight)),
+      ]),
+    );
+  }
+
+  Widget _shimmer() {
+    return Container(
+      height: 80,
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        boxShadow: AppTheme.cardShadow,
+      ),
+      child: const Center(
+          child: SizedBox(
+              width: 28,
+              height: 28,
+              child: CircularProgressIndicator(strokeWidth: 2.5))),
+    );
+  }
+
+  Widget _errorCard(String e) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: AppTheme.errorColor.withOpacity(0.06),
+        borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+        border: Border.all(color: AppTheme.errorColor.withOpacity(0.2)),
+      ),
+      child: Row(children: [
+        const Icon(Icons.error_outline, color: AppTheme.errorColor),
+        const SizedBox(width: 12),
+        Expanded(
+            child:
+                Text(e, style: const TextStyle(color: AppTheme.errorColor, fontSize: 13))),
+      ]),
+    );
+  }
+
+  void _snack(BuildContext ctx, String msg) {
+    ScaffoldMessenger.of(ctx).showSnackBar(SnackBar(
+      content: Row(children: [
+        const Icon(Icons.check_circle, color: Colors.white, size: 20),
+        const SizedBox(width: 10),
+        Text(msg),
+      ]),
+      backgroundColor: AppTheme.successColor,
+      behavior: SnackBarBehavior.floating,
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(AppTheme.radiusMedium)),
+    ));
+  }
+
+  String _greeting() {
+    final h = DateTime.now().hour;
+    if (h < 12) return 'Good Morning';
+    if (h < 17) return 'Good Afternoon';
+    return 'Good Evening';
+  }
+
+  IconData _typeIcon(String t) {
+    switch (t.toLowerCase()) {
       case 'medical':
         return Icons.local_hospital;
       case 'food':
@@ -463,27 +846,27 @@ class CaregiverHomeScreen extends ConsumerWidget {
     }
   }
 
-  Color _getRequestColor(String type) {
-    switch (type.toLowerCase()) {
+  Color _typeColor(String t) {
+    switch (t.toLowerCase()) {
       case 'medical':
-        return Colors.red;
+        return AppTheme.errorColor;
       case 'food':
-        return Colors.orange;
+        return AppTheme.warningColor;
       case 'transport':
-        return Colors.blue;
+        return AppTheme.infoColor;
       case 'companion':
-        return Colors.purple;
+        return AppTheme.accentColor;
       default:
-        return Colors.grey;
+        return AppTheme.textSecondaryLight;
     }
   }
 
-  String _formatTimeAgo(DateTime? dateTime) {
-    if (dateTime == null) return 'Unknown';
-    final diff = DateTime.now().difference(dateTime);
-    if (diff.inMinutes < 1) return 'Just now';
-    if (diff.inMinutes < 60) return '${diff.inMinutes}m ago';
-    if (diff.inHours < 24) return '${diff.inHours}h ago';
-    return DateFormat('MMM d').format(dateTime);
+  String _timeAgo(DateTime? dt) {
+    if (dt == null) return 'Unknown';
+    final d = DateTime.now().difference(dt);
+    if (d.inMinutes < 1) return 'Just now';
+    if (d.inMinutes < 60) return '${d.inMinutes}m ago';
+    if (d.inHours < 24) return '${d.inHours}h ago';
+    return DateFormat('MMM d').format(dt);
   }
 }

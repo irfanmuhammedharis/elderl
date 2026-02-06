@@ -81,9 +81,15 @@ class AppRoutes {
 }
 
 /// Routes available on web platform
+/// Only login and webAdmin are allowed - signup is Android-only
 const _webAllowedRoutes = [
   AppRoutes.login,
-  AppRoutes.signup,
+  AppRoutes.webAdmin,
+];
+
+/// Admin routes that should be blocked on Android (admin uses web portal only)
+const _adminOnlyRoutes = [
+  AppRoutes.adminHome,
   AppRoutes.webAdmin,
 ];
 
@@ -100,6 +106,14 @@ bool _isAndroidOnlyRoute(String location) {
   return true;
 }
 
+/// Check if route is admin-only (should be blocked on Android)
+bool _isAdminOnlyRoute(String location) {
+  for (final route in _adminOnlyRoutes) {
+    if (location.startsWith(route)) return true;
+  }
+  return false;
+}
+
 /// App router provider
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
@@ -110,6 +124,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       // On web, redirect Android-only routes to web admin
       if (kIsWeb && _isAndroidOnlyRoute(location)) {
         return AppRoutes.webAdmin;
+      }
+      
+      // On Android, redirect admin routes to login (admin is web-only)
+      if (!kIsWeb && _isAdminOnlyRoute(location)) {
+        return AppRoutes.login;
       }
       
       return null; // No redirect

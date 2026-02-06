@@ -81,6 +81,7 @@ class AuthController extends StateNotifier<AuthState> {
     required String name,
     required String role,
     String? phone,
+    String? linkedSeniorId,
   }) async {
     state = AuthState.loading();
     try {
@@ -90,6 +91,7 @@ class AuthController extends StateNotifier<AuthState> {
         name: name,
         role: role,
         phone: phone,
+        linkedSeniorId: linkedSeniorId,
       );
       if (user != null) {
         state = AuthState.authenticated(user);
@@ -101,6 +103,15 @@ class AuthController extends StateNotifier<AuthState> {
     } catch (e) {
       state = AuthState.error(e.toString());
       return false;
+    }
+  }
+
+  /// Find a registered senior by their email
+  Future<Map<String, String>?> findSeniorByEmail(String email) async {
+    try {
+      return await _repository.findSeniorByEmail(email);
+    } catch (e) {
+      return null;
     }
   }
 

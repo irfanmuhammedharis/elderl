@@ -65,6 +65,7 @@ class AuthRepository {
     required String name,
     required String role,
     String? phone,
+    String? linkedSeniorId,
   }) async {
     try {
       final credential = await _auth.createUserWithEmailAndPassword(
@@ -79,6 +80,8 @@ class AuthRepository {
           name: name,
           role: role,
           phone: phone,
+          linkedSeniorId: linkedSeniorId,
+          assignedSeniors: linkedSeniorId != null ? [linkedSeniorId] : null,
           createdAt: DateTime.now(),
         );
         
@@ -91,11 +94,54 @@ class AuthRepository {
             .doc(user.uid)
             .set(user.toMap());
         
+        // If linking to a senior, update the senior's linked family/caregivers list
+        if (linkedSeniorId != null) {
+          final seniorDoc = _firestore
+              .collection(AppConstants.usersCollection)
+              .doc(linkedSeniorId);
+          
+          if (role == AppConstants.roleFamily) {
+            await seniorDoc.update({
+              'linkedFamily': FieldValue.arrayUnion([credential.user!.uid]),
+            });
+          } else if (role == AppConstants.roleCaregiver) {
+            await seniorDoc.update({
+              'assignedCaregivers': FieldValue.arrayUnion([credential.user!.uid]),
+            });
+          }
+        }
+        
         return user;
       }
       return null;
     } on FirebaseAuthException catch (e) {
       throw _handleAuthException(e);
+    }
+  }
+
+  /// Find a registered senior by their email
+  /// Returns uid and name if found, null otherwise
+  Future<Map<String, String>?> findSeniorByEmail(String email) async {
+    try {
+      final querySnapshot = await _firestore
+          .collection(AppConstants.usersCollection)
+          .where('email', isEqualTo: email.toLowerCase().trim())
+          .where('role', isEqualTo: AppConstants.roleSenior)
+          .limit(1)
+          .get();
+      
+      if (querySnapshot.docs.isNotEmpty) {
+        final doc = querySnapshot.docs.first;
+        final data = doc.data();
+        return {
+          'uid': doc.id,
+          'name': data['name'] as String? ?? 'Unknown',
+        };
+      }
+      return null;
+    } catch (e) {
+      debugPrint('Error finding senior by email: $e');
+      return null;
     }
   }
 
