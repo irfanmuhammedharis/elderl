@@ -1,5 +1,7 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../../../core/services/notification_service.dart';
 import '../../data/repositories/auth_repository.dart';
+import '../../data/user_repository.dart';
 import '../../domain/entities/app_user.dart';
 
 /// Auth state
@@ -47,14 +49,21 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
 /// Auth controller provider
 final authControllerProvider =
     StateNotifierProvider<AuthController, AuthState>((ref) {
-  return AuthController(ref.watch(authRepositoryProvider));
+  return AuthController(
+    ref.watch(authRepositoryProvider),
+    ref.watch(notificationServiceProvider),
+    ref.watch(userRepositoryProvider),
+  );
 });
 
 /// Auth controller
 class AuthController extends StateNotifier<AuthState> {
   final AuthRepository _repository;
+  final NotificationService _notificationService;
+  final UserRepository _userRepository;
 
-  AuthController(this._repository) : super(AuthState.initial());
+  AuthController(this._repository, this._notificationService, this._userRepository)
+      : super(AuthState.initial());
 
   /// Sign in with email and password
   Future<bool> signIn(String email, String password) async {
@@ -63,6 +72,8 @@ class AuthController extends StateNotifier<AuthState> {
       final user = await _repository.signIn(email, password);
       if (user != null) {
         state = AuthState.authenticated(user);
+        // Save FCM token for push notifications
+        _notificationService.getAndSaveToken(user.uid, _userRepository);
         return true;
       } else {
         state = AuthState.error('Invalid credentials');
@@ -111,7 +122,7 @@ class AuthController extends StateNotifier<AuthState> {
     try {
       return await _repository.findSeniorByEmail(email);
     } catch (e) {
-      return null;
+      throw Exception('Could not verify senior email. Please check your internet connection and try again.');
     }
   }
 

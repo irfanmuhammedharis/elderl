@@ -1,0 +1,36 @@
+    // Activities collection - for family members to see senior-caregiver interactions
+    match /activities/{activityId} {
+      // Family members and caregivers can read activities for their linked seniors
+      // Seniors can read their own activities
+      // Admins can read all
+      allow read: if isAuthenticated() &&
+        (resource.data.seniorId == request.auth.uid ||
+         isLinkedToSenior(resource.data.seniorId) ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      
+      // Only system (via backend) or admins can create/update/delete activities
+      allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Emergency alerts collection
+    match /emergency_alerts/{alertId} {
+      // Seniors can read their own alerts
+      // Linked caregivers and family can read alerts from their seniors
+      // Admins can read all
+      allow read: if isAuthenticated() &&
+        (resource.data.seniorId == request.auth.uid ||
+         isLinkedToSenior(resource.data.seniorId) ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      
+      // Seniors can create emergency alerts
+      // Caregivers/family can update to resolve alerts
+      // Admins have full access
+      allow create: if isApproved() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'senior';
+      
+      allow update: if isAuthenticated() &&
+        (isLinkedToSenior(resource.data.seniorId) ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      
+      allow delete: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }

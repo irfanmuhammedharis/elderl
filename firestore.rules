@@ -24,96 +24,188 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
     
+    // Helper function to check if user is linked to a senior (caregiver or family)
+    function isLinkedToSenior(seniorId) {
+      let seniorData = get(/databases/$(database)/documents/users/$(seniorId)).data;
+      let currentUser = get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+      
+      // Check if current user is in senior's assignedCaregivers or linkedFamily
+      return request.auth.uid in seniorData.get('assignedCaregivers', []) ||
+             request.auth.uid in seniorData.get('linkedFamily', []) ||
+             currentUser.get('linkedSeniorId', '') == seniorId ||
+             seniorId in currentUser.get('assignedSeniors', []);
+    }
+    
     // Users collection
     match /users/{userId} {
-      // Anyone authenticated can read their own profile
-      // Admins can read all profiles
+      // Anyone authenticated can ALWAYS read their own profile (needed for isAdmin/isApproved checks)
+      // Admins can read all profiles (check role directly to avoid circular dependency)
       // Approved users can read other users for messaging/linking
-      allow read: if isOwner(userId) || isAdmin() || isApproved();
+      // UNAUTHENTICATED users can read ONLY when querying seniors by email (for signup validation)
+      allow read: if (isAuthenticated() && 
+        (request.auth.uid == userId || 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+         isApproved())) ||
+        (!isAuthenticated() && resource.data.role == 'senior');
       
       // Users can create their own profile on signup
       allow create: if isOwner(userId);
       
       // Users can update their own profile (except approval fields)
-      // Admins can update any profile including approval fields
-      allow update: if isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys()
-        .hasAny(['approvalStatus', 'approvedBy', 'approvedAt', 'role']) || isAdmin();
+      // Admins can update any profile including approval fields (check role directly)
+      // Authenticated users can link themselves to a senior (update ONLY linkedFamily/assignedCaregivers)
+      allow update: if (isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['approvalStatus', 'approvedBy', 'approvedAt', 'role'])) || 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' ||
+        (isAuthenticated() && resource.data.role == 'senior' &&
+         request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['linkedFamily', 'assignedCaregivers']));
       
-      // Only admins can delete users
-      allow delete: if isAdmin();
+      // Only admins can delete users (check role directly)
+      allow delete: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
     
     // Requests collection (help requests from seniors)
     match /requests/{requestId} {
       // Seniors can read their own requests
-      // Caregivers can read all requests (to accept them)
-      // Family members can read requests of their linked senior
-      // Admins can read all
-      allow read: if isAuthenticated() && isApproved();
+      // Approved caregivers can read ALL pending requests (to discover and accept new ones)
+      // Caregivers/Family can read requests from their linked seniors
+      // Admins can read all (check role directly)
+      allow read: if isAuthenticated() && 
+        (resource.data.seniorId == request.auth.uid ||
+         isLinkedToSenior(resource.data.seniorId) ||
+         (isApproved() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'caregiver') ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
       
       // Only approved seniors can create requests
       allow create: if isApproved() && 
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'senior';
       
       // Seniors can update their own requests (cancel)
-      // Caregivers can update requests (accept, complete)
+      // Approved caregivers can update any request (accept, start, complete)
       // Admins can update any request
-      allow update: if isApproved() || isAdmin();
+      allow update: if isAuthenticated() &&
+        (resource.data.seniorId == request.auth.uid ||
+         isLinkedToSenior(resource.data.seniorId) ||
+         (isApproved() && get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'caregiver') ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
       
-      // Only admins can delete requests
-      allow delete: if isAdmin();
+      // Only admins can delete requests (check role directly)
+      allow delete: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
-    
+
     // Check-ins collection
     match /checkins/{checkinId} {
-      // Users can read their own check-ins
+      // Seniors can read their own check-ins
       // Family can read their linked senior's check-ins
-      // Caregivers can read assigned seniors' check-ins
-      // Admins can read all
-      allow read: if isAuthenticated() && isApproved();
+      // Caregivers can read their assigned seniors' check-ins
+      // Admins can read all (check role directly)
+      allow read: if isAuthenticated() && 
+        (resource.data.seniorId == request.auth.uid ||
+         isLinkedToSenior(resource.data.seniorId) ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
       
       // Only approved seniors can create check-ins
       allow create: if isApproved() && 
         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'senior';
       
       // Check-ins generally shouldn't be updated or deleted
-      allow update, delete: if isAdmin();
+      // Admins can update/delete (check role directly)
+      allow update, delete: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
     
     // Messages/Conversations collection
     match /conversations/{conversationId} {
       // Participants can read their conversations
-      allow read: if isApproved() && 
-        request.auth.uid in resource.data.participants;
+      // Admins can read all (check role directly)
+      allow read: if (isApproved() && request.auth.uid in resource.data.participantIds) ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
       
-      // Approved users can create conversations
-      allow create: if isApproved();
+      // Approved users can create conversations (must include themselves as participant)
+      allow create: if isApproved() && request.auth.uid in request.resource.data.participantIds;
       
-      // Participants can update their conversations
-      allow update: if isApproved() && 
-        request.auth.uid in resource.data.participants;
+      // Participants can update their conversations  
+      // Admins can update all (check role directly)
+      allow update: if (isApproved() && request.auth.uid in resource.data.participantIds) ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
       
       // Participants can delete their conversations
-      allow delete: if isApproved() && 
-        request.auth.uid in resource.data.participants;
+      // Admins can delete all (check role directly)
+      allow delete: if (isApproved() && request.auth.uid in resource.data.participantIds) ||
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
       
       // Messages subcollection
       match /messages/{messageId} {
-        allow read: if isApproved() && 
-          request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+        // Participants can read messages
+        // Admins can read all (check role directly)
+        allow read: if (isApproved() && 
+          request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds) ||
+          get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
         
+        // Participants can create messages
         allow create: if isApproved() && 
-          request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participants;
+          request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
         
-        allow update, delete: if isAdmin();
+        // Admins can update/delete (check role directly)
+        allow update, delete: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
       }
     }
     
     // Profiles collection (extended profile data)
     match /profiles/{userId} {
-      allow read: if isOwner(userId) || isAdmin() || isApproved();
-      allow create, update: if isOwner(userId) || isAdmin();
-      allow delete: if isAdmin();
+      // Users can read their own profile
+      // Admins can read all (check role directly)
+      // Approved users can read others
+      allow read: if isOwner(userId) || 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin' || 
+        isApproved();
+      
+      // Users can create/update their own profile
+      // Admins can create/update all (check role directly)
+      allow create, update: if isOwner(userId) || 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+      
+      // Only admins can delete (check role directly)
+      allow delete: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Activities collection - for family members to see senior-caregiver interactions
+    match /activities/{activityId} {
+      // Family members and caregivers can read activities for their linked seniors
+      // Seniors can read their own activities
+      // Admins can read all
+      allow read: if isAuthenticated() &&
+        (resource.data.seniorId == request.auth.uid ||
+         isLinkedToSenior(resource.data.seniorId) ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      
+      // Approved users can create activity logs (seniors create on request, caregivers on accept/complete)
+      // Admins have full write access
+      allow create: if isApproved();
+      allow update, delete: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Emergency alerts collection (Firestore-based for linked user access)
+    match /emergency_alerts/{alertId} {
+      // Seniors can read their own alerts
+      // Linked caregivers and family can read alerts from their seniors
+      // Admins can read all
+      allow read: if isAuthenticated() &&
+        (resource.data.seniorId == request.auth.uid ||
+         isLinkedToSenior(resource.data.seniorId) ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      
+      // Seniors can create emergency alerts
+      // Caregivers/family can update to resolve alerts
+      // Admins have full access
+      allow create: if isApproved() &&
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'senior';
+      
+      allow update: if isAuthenticated() &&
+        (isLinkedToSenior(resource.data.seniorId) ||
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin');
+      
+      allow delete: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
     
     // Sync check collection - used for cross-platform sync monitoring
@@ -121,8 +213,8 @@ service cloud.firestore {
     match /_sync_check/{docId} {
       // Any authenticated user can read sync check documents
       allow read: if isAuthenticated();
-      // Only the system (via admin SDK) or admins can write
-      allow write: if isAdmin();
+      // Only the system (via admin SDK) or admins can write (check role directly)
+      allow write: if get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
     }
   }
 }

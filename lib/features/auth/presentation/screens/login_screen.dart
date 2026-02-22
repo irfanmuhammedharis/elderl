@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
+import 'package:flutter/foundation.dart' show kDebugMode, kIsWeb;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../../../core/routing/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../domain/entities/app_user.dart';
 import '../controllers/auth_controller.dart';
-import 'forgot_password_screen.dart';
 
 class LoginScreen extends ConsumerStatefulWidget {
   const LoginScreen({super.key});
@@ -271,12 +270,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                                   alignment: Alignment.centerRight,
                                   child: TextButton(
                                     onPressed: () {
-                                      Navigator.push(
-                                        context,
-                                        MaterialPageRoute(
-                                          builder: (context) => const ForgotPasswordScreen(),
-                                        ),
-                                      );
+                                      context.push(AppRoutes.forgotPassword);
                                     },
                                     child: const Text('Forgot Password?'),
                                   ),
@@ -308,7 +302,7 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
 
                                   // Sign Up Button
                                   OutlinedButton(
-                                    onPressed: () => context.go(AppRoutes.signup),
+                                    onPressed: () => context.push(AppRoutes.signup),
                                     child: const Text('Create New Account'),
                                   ),
                                 ],
@@ -353,9 +347,10 @@ class _LoginScreenState extends ConsumerState<LoginScreen>
                       const SizedBox(height: 24),
 
                       // Dev Link (Android only - smaller, less prominent)
-                      if (!kIsWeb)
+                      // Dev link only visible in debug builds
+                      if (!kIsWeb && kDebugMode)
                         TextButton.icon(
-                          onPressed: () => context.go(AppRoutes.createTestUsers),
+                          onPressed: () => context.push(AppRoutes.createTestUsers),
                           icon: Icon(
                           Icons.developer_mode,
                           size: 16,

@@ -353,7 +353,7 @@ class _FamilyCheckinsScreenState extends ConsumerState<FamilyCheckinsScreen> {
           ),
           Text(
             label,
-            style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
             textAlign: TextAlign.center,
           ),
         ],

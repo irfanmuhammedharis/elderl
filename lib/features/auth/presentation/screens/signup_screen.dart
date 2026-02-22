@@ -25,9 +25,6 @@ class _SignupScreenState extends ConsumerState<SignupScreen>
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
   String _selectedRole = AppConstants.roleSenior;
-  bool _isValidatingSenior = false;
-  String? _validatedSeniorId;
-  String? _validatedSeniorName;
 
   late AnimationController _animationController;
   late Animation<double> _fadeAnimation;
@@ -66,25 +63,50 @@ class _SignupScreenState extends ConsumerState<SignupScreen>
   Future<void> _handleSignup() async {
     if (!_formKey.currentState!.validate()) return;
 
-    // For caregiver/family roles, validate the senior email first
-    if (_requiresSeniorLink && _validatedSeniorId == null) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: const Row(
-            children: [
-              Icon(Icons.warning_amber_rounded, color: Colors.white),
-              SizedBox(width: 12),
-              Expanded(child: Text('Please verify the senior\'s email first')),
-            ],
-          ),
-          backgroundColor: Colors.orange,
-          behavior: SnackBarBehavior.floating,
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-          ),
-        ),
-      );
-      return;
+    // For caregiver/family roles, look up the senior by email
+    String? linkedSeniorId;
+    if (_requiresSeniorLink) {
+      final seniorEmail = _seniorEmailController.text.trim();
+      if (seniorEmail.isNotEmpty) {
+        try {
+          final seniorData = await ref.read(authControllerProvider.notifier)
+              .findSeniorByEmail(seniorEmail);
+          if (seniorData != null) {
+            linkedSeniorId = seniorData['uid'];
+          } else {
+            if (mounted) {
+              ScaffoldMessenger.of(context).showSnackBar(
+                SnackBar(
+                  content: const Row(
+                    children: [
+                      Icon(Icons.error_outline, color: Colors.white),
+                      SizedBox(width: 12),
+                      Expanded(child: Text('No registered senior found with this email')),
+                    ],
+                  ),
+                  backgroundColor: AppTheme.errorColor,
+                  behavior: SnackBarBehavior.floating,
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
+                  ),
+                ),
+              );
+            }
+            return;
+          }
+        } catch (e) {
+          if (mounted) {
+            ScaffoldMessenger.of(context).showSnackBar(
+              SnackBar(
+                content: Text('Error verifying senior email: $e'),
+                backgroundColor: AppTheme.errorColor,
+                behavior: SnackBarBehavior.floating,
+              ),
+            );
+          }
+          return;
+        }
+      }
     }
 
     final success = await ref.read(authControllerProvider.notifier).signUp(
@@ -95,7 +117,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen>
           phone: _phoneController.text.trim().isNotEmpty
               ? _phoneController.text.trim()
               : null,
-          linkedSeniorId: _validatedSeniorId,
+          linkedSeniorId: linkedSeniorId,
         );
 
     if (success && mounted) {
@@ -104,85 +126,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen>
     }
   }
 
-  /// Validate senior email and get their ID
-  Future<void> _validateSeniorEmail() async {
-    final seniorEmail = _seniorEmailController.text.trim();
-    if (seniorEmail.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('Please enter the senior\'s email'),
-          backgroundColor: AppTheme.errorColor,
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-      return;
-    }
 
-    setState(() {
-      _isValidatingSenior = true;
-      _validatedSeniorId = null;
-      _validatedSeniorName = null;
-    });
-
-    try {
-      final seniorData = await ref.read(authControllerProvider.notifier)
-          .findSeniorByEmail(seniorEmail);
-      
-      if (seniorData != null && mounted) {
-        setState(() {
-          _validatedSeniorId = seniorData['uid'];
-          _validatedSeniorName = seniorData['name'];
-        });
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Row(
-              children: [
-                const Icon(Icons.check_circle, color: Colors.white),
-                const SizedBox(width: 12),
-                Expanded(child: Text('Found: ${seniorData['name']}')),
-              ],
-            ),
-            backgroundColor: Colors.green,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-            ),
-          ),
-        );
-      } else if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: const Row(
-              children: [
-                Icon(Icons.error_outline, color: Colors.white),
-                SizedBox(width: 12),
-                Expanded(child: Text('No registered senior found with this email')),
-              ],
-            ),
-            backgroundColor: AppTheme.errorColor,
-            behavior: SnackBarBehavior.floating,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-            ),
-          ),
-        );
-      }
-    } catch (e) {
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Error: $e'),
-            backgroundColor: AppTheme.errorColor,
-            behavior: SnackBarBehavior.floating,
-          ),
-        );
-      }
-    } finally {
-      if (mounted) {
-        setState(() => _isValidatingSenior = false);
-      }
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -522,21 +466,21 @@ class _SignupScreenState extends ConsumerState<SignupScreen>
         label: 'Senior',
         description: 'I need assistance',
         icon: Icons.elderly,
-        color: const Color(0xFF5C6BC0),
+        color: AppTheme.seniorColor,
       ),
       _RoleData(
         role: AppConstants.roleCaregiver,
         label: 'Caregiver',
         description: 'I provide care',
         icon: Icons.volunteer_activism,
-        color: const Color(0xFF26A69A),
+        color: AppTheme.caregiverColor,
       ),
       _RoleData(
         role: AppConstants.roleFamily,
         label: 'Family',
         description: 'I monitor loved ones',
         icon: Icons.family_restroom,
-        color: const Color(0xFF7E57C2),
+        color: AppTheme.familyColor,
       ),
     ];
 
@@ -616,7 +560,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen>
                 Text(
                   roleData.description,
                   style: TextStyle(
-                    fontSize: 11,
+                    fontSize: 12,
                     color: isSelected 
                         ? roleData.color.withOpacity(0.8) 
                         : AppTheme.textSecondaryLight,
@@ -656,6 +600,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen>
           controller: controller,
           keyboardType: keyboardType,
           obscureText: obscureText,
+          enableInteractiveSelection: true,
           style: const TextStyle(fontSize: 16),
           decoration: InputDecoration(
             hintText: hint,
@@ -670,163 +615,23 @@ class _SignupScreenState extends ConsumerState<SignupScreen>
 
   /// Build the senior email section for caregiver/family registration
   Widget _buildSeniorEmailSection() {
-    final roleColor = _getRoleColor(_selectedRole);
-    final roleLabel = _selectedRole == AppConstants.roleCaregiver 
-        ? 'senior you will care for' 
-        : 'elderly family member';
-    
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: roleColor.withOpacity(0.05),
-        borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-        border: Border.all(
-          color: roleColor.withOpacity(0.3),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(Icons.elderly, color: roleColor, size: 22),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  'Link to Registered Senior',
-                  style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                    color: roleColor,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(
-            'Enter the email of the $roleLabel. They must already be registered in the system.',
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: AppTheme.textSecondaryLight,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Row(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Expanded(
-                child: TextFormField(
-                  controller: _seniorEmailController,
-                  keyboardType: TextInputType.emailAddress,
-                  style: const TextStyle(fontSize: 16),
-                  decoration: const InputDecoration(
-                    hintText: 'Senior\'s email address',
-                    prefixIcon: Icon(Icons.email_outlined, size: 22),
-                    filled: true,
-                    fillColor: Colors.white,
-                  ),
-                  onChanged: (_) {
-                    // Reset validation when email changes
-                    if (_validatedSeniorId != null) {
-                      setState(() {
-                        _validatedSeniorId = null;
-                        _validatedSeniorName = null;
-                      });
-                    }
-                  },
-                  validator: (value) {
-                    if (_requiresSeniorLink) {
-                      if (value == null || value.isEmpty) {
-                        return 'Please enter the senior\'s email';
-                      }
-                      if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
-                        return 'Please enter a valid email';
-                      }
-                    }
-                    return null;
-                  },
-                ),
-              ),
-              const SizedBox(width: 12),
-              SizedBox(
-                height: 56,
-                child: ElevatedButton(
-                  onPressed: _isValidatingSenior ? null : _validateSeniorEmail,
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: roleColor,
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(AppTheme.radiusMedium),
-                    ),
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                  ),
-                  child: _isValidatingSenior
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                          ),
-                        )
-                      : const Text('Verify', style: TextStyle(fontWeight: FontWeight.w600)),
-                ),
-              ),
-            ],
-          ),
-          
-          // Show validated senior info
-          if (_validatedSeniorId != null && _validatedSeniorName != null) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(AppTheme.radiusSmall),
-                border: Border.all(color: Colors.green.withOpacity(0.3)),
-              ),
-              child: Row(
-                children: [
-                  const Icon(Icons.check_circle, color: Colors.green, size: 20),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          'Linked Senior',
-                          style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                            color: Colors.green,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        Text(
-                          _validatedSeniorName!,
-                          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  IconButton(
-                    icon: const Icon(Icons.close, size: 18),
-                    onPressed: () {
-                      setState(() {
-                        _validatedSeniorId = null;
-                        _validatedSeniorName = null;
-                        _seniorEmailController.clear();
-                      });
-                    },
-                    color: AppTheme.textSecondaryLight,
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ],
-      ),
+    return _buildTextField(
+      controller: _seniorEmailController,
+      label: "Senior's Email",
+      hint: "Enter the senior's email address",
+      icon: Icons.elderly,
+      keyboardType: TextInputType.emailAddress,
+      validator: (value) {
+        if (_requiresSeniorLink) {
+          if (value == null || value.isEmpty) {
+            return 'Please enter the senior\'s email';
+          }
+          if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(value)) {
+            return 'Please enter a valid email';
+          }
+        }
+        return null;
+      },
     );
   }
 
@@ -889,20 +694,7 @@ class _SignupScreenState extends ConsumerState<SignupScreen>
     );
   }
 
-  Color _getRoleColor(String role) {
-    switch (role) {
-      case AppConstants.roleSenior:
-        return const Color(0xFF5C6BC0);
-      case AppConstants.roleCaregiver:
-        return const Color(0xFF26A69A);
-      case AppConstants.roleFamily:
-        return const Color(0xFF7E57C2);
-      case AppConstants.roleAdmin:
-        return const Color(0xFF1565C0);
-      default:
-        return AppTheme.primaryColor;
-    }
-  }
+  Color _getRoleColor(String role) => AppTheme.roleColor(role);
 
   String _getRoleLabel(String role) {
     switch (role) {

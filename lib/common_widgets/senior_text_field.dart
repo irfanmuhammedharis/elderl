@@ -52,11 +52,23 @@ class _SeniorTextFieldState extends State<SeniorTextField> {
   }
 
   @override
+  void didUpdateWidget(covariant SeniorTextField oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.focusNode != oldWidget.focusNode) {
+      _effectiveFocusNode.removeListener(_handleFocusChange);
+      if (oldWidget.focusNode == null) {
+        _effectiveFocusNode.dispose();
+      }
+      _effectiveFocusNode = widget.focusNode ?? FocusNode();
+      _effectiveFocusNode.addListener(_handleFocusChange);
+    }
+  }
+
+  @override
   void dispose() {
+    _effectiveFocusNode.removeListener(_handleFocusChange);
     if (widget.focusNode == null) {
       _effectiveFocusNode.dispose();
-    } else {
-      _effectiveFocusNode.removeListener(_handleFocusChange);
     }
     super.dispose();
   }

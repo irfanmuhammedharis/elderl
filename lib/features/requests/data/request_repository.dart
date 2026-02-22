@@ -1,7 +1,11 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_database/firebase_database.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../../core/services/firestore_service.dart';
 import '../../../core/utils/constants.dart';
+import '../../activity/data/activity_repository.dart';
+import '../../activity/domain/entities/activity_log.dart';
 
 /// Help request model
 class HelpRequest {
@@ -49,6 +53,8 @@ class HelpRequest {
       'latitude': latitude,
       'longitude': longitude,
       'address': address,
+      'createdAt': createdAt != null ? Timestamp.fromDate(createdAt!) : FieldValue.serverTimestamp(),
+      'updatedAt': FieldValue.serverTimestamp(),
       'completedAt': completedAt != null ? Timestamp.fromDate(completedAt!) : null,
     };
   }
@@ -66,10 +72,24 @@ class HelpRequest {
       latitude: (map['latitude'] as num?)?.toDouble(),
       longitude: (map['longitude'] as num?)?.toDouble(),
       address: map['address'],
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate(),
-      updatedAt: (map['updatedAt'] as Timestamp?)?.toDate(),
-      completedAt: (map['completedAt'] as Timestamp?)?.toDate(),
+      createdAt: _parseTimestamp(map['createdAt']),
+      updatedAt: _parseTimestamp(map['updatedAt']),
+      completedAt: _parseTimestamp(map['completedAt']),
     );
+  }
+
+  /// Helper to parse timestamp that could be either Timestamp or String
+  static DateTime? _parseTimestamp(dynamic value) {
+    if (value == null) return null;
+    if (value is Timestamp) return value.toDate();
+    if (value is String) {
+      try {
+        return DateTime.parse(value);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
   }
 
   HelpRequest copyWith({
@@ -110,8 +130,11 @@ class HelpRequest {
 /// Request repository for Firestore operations
 class RequestRepository {
   final FirestoreService _firestoreService;
+  final ActivityRepository? _activityRepository;
+  final FirebaseDatabase _realtimeDb;
 
-  RequestRepository(this._firestoreService);
+  RequestRepository(this._firestoreService, [this._activityRepository])
+      : _realtimeDb = FirebaseDatabase.instance;
 
   /// Create a new help request with individual parameters
   Future<String> create({
@@ -142,6 +165,46 @@ class RequestRepository {
       AppConstants.requestsCollection,
       request.toMap(),
     );
+
+    // Write to RTDB for instant real-time alerts to caregivers
+    try {
+      await _realtimeDb.ref('pending_request_alerts/${docRef.id}').set({
+        'requestId': docRef.id,
+        'seniorId': request.seniorId,
+        'seniorName': request.seniorName,
+        'type': request.type,
+        'description': request.description,
+        'status': request.status,
+        'address': request.address,
+        'latitude': request.latitude,
+        'longitude': request.longitude,
+        'createdAt': ServerValue.timestamp,
+      });
+    } catch (e) {
+      debugPrint('Failed to write RTDB alert: $e');
+    }
+    
+    // Log activity for family members
+    if (_activityRepository != null) {
+      try {
+        await _activityRepository!.createActivityLog(
+          ActivityLog(
+            id: '',
+            seniorId: request.seniorId,
+            seniorName: request.seniorName,
+            activityType: ActivityType.requestCreated,
+            title: 'Help Request Created',
+            description: '${request.seniorName} requested help: ${request.type}',
+            timestamp: DateTime.now(),
+            requestId: docRef.id,
+            metadata: {'type': request.type, 'description': request.description},
+          ),
+        );
+      } catch (e) {
+        print('Failed to log activity: $e');
+      }
+    }
+    
     return docRef.id;
   }
 
@@ -161,10 +224,22 @@ class RequestRepository {
       updateData['completedAt'] = FieldValue.serverTimestamp();
     }
     await _firestoreService.update(AppConstants.requestsCollection, requestId, updateData);
+
+    // Remove from RTDB pending alerts when no longer pending
+    if (status != AppConstants.statusPending) {
+      try {
+        await _realtimeDb.ref('pending_request_alerts/$requestId').remove();
+      } catch (e) {
+        debugPrint('Failed to remove RTDB alert: $e');
+      }
+    }
   }
 
   /// Assign caregiver to request
   Future<void> assignRequest(String requestId, String caregiverId, String caregiverName) async {
+    // Get request details first
+    final request = await getRequest(requestId);
+    
     await _firestoreService.update(
       AppConstants.requestsCollection,
       requestId,
@@ -174,6 +249,36 @@ class RequestRepository {
         'status': AppConstants.statusAccepted,
       },
     );
+
+    // Remove from RTDB pending alerts since request is now accepted
+    try {
+      await _realtimeDb.ref('pending_request_alerts/$requestId').remove();
+    } catch (e) {
+      debugPrint('Failed to remove RTDB alert: $e');
+    }
+    
+    // Log activity for family members
+    if (_activityRepository != null && request != null) {
+      try {
+        await _activityRepository!.createActivityLog(
+          ActivityLog(
+            id: '',
+            seniorId: request.seniorId,
+            seniorName: request.seniorName,
+            caregiverId: caregiverId,
+            caregiverName: caregiverName,
+            activityType: ActivityType.requestAccepted,
+            title: 'Request Accepted',
+            description: '$caregiverName accepted the request: ${request.type}',
+            timestamp: DateTime.now(),
+            requestId: requestId,
+            metadata: {'type': request.type},
+          ),
+        );
+      } catch (e) {
+        print('Failed to log activity: $e');
+      }
+    }
   }
 
   /// Get requests for a senior
@@ -264,7 +369,33 @@ class RequestRepository {
 
   /// Complete a request
   Future<void> completeRequest(String requestId) async {
+    // Get request details first
+    final request = await getRequest(requestId);
+    
     await updateRequestStatus(requestId, AppConstants.statusCompleted);
+    
+    // Log activity for family members
+    if (_activityRepository != null && request != null) {
+      try {
+        await _activityRepository!.createActivityLog(
+          ActivityLog(
+            id: '',
+            seniorId: request.seniorId,
+            seniorName: request.seniorName,
+            caregiverId: request.assignedTo,
+            caregiverName: request.assignedToName,
+            activityType: ActivityType.requestCompleted,
+            title: 'Request Completed',
+            description: 'Help request completed: ${request.type}',
+            timestamp: DateTime.now(),
+            requestId: requestId,
+            metadata: {'type': request.type},
+          ),
+        );
+      } catch (e) {
+        print('Failed to log activity: $e');
+      }
+    }
   }
 
   /// Stream all requests (for admin)
@@ -281,8 +412,15 @@ class RequestRepository {
   }
 }
 
+/// Activity repository provider
+final activityRepositoryProvider = Provider<ActivityRepository>((ref) {
+  final firestoreService = ref.watch(firestoreServiceProvider);
+  return ActivityRepository(firestoreService);
+});
+
 /// Request repository provider
 final requestRepositoryProvider = Provider<RequestRepository>((ref) {
   final firestoreService = ref.watch(firestoreServiceProvider);
-  return RequestRepository(firestoreService);
+  final activityRepository = ref.watch(activityRepositoryProvider);
+  return RequestRepository(firestoreService, activityRepository);
 });

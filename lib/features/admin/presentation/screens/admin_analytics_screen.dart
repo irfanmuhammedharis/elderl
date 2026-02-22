@@ -273,7 +273,7 @@ class AdminAnalyticsScreen extends ConsumerWidget {
             ),
             Text(
               subtitle,
-              style: TextStyle(color: Colors.grey[600], fontSize: 11),
+              style: TextStyle(color: Colors.grey[600], fontSize: 12),
             ),
           ],
         ),

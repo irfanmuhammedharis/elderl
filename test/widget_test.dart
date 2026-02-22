@@ -59,6 +59,7 @@ void main() {
       WidgetTester tester,
     ) async {
       final formKey = GlobalKey<FormState>();
+      // ignore: unused_local_variable
       String? email;
 
       await tester.pumpWidget(

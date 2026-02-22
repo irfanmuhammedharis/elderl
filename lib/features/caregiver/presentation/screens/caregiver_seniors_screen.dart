@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
-import '../../../../core/routing/app_router.dart';
+import '../../../../core/utils/messaging_helper.dart';
 import '../../../auth/domain/entities/app_user.dart';
 import '../controllers/caregiver_controller.dart';
 
@@ -180,11 +180,14 @@ class _SeniorCard extends StatelessWidget {
                             children: [
                               const Icon(Icons.phone, size: 14, color: Colors.grey),
                               const SizedBox(width: 4),
-                              Text(
-                                senior.phone!,
-                                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                                      color: Colors.grey[600],
-                                    ),
+                              Expanded(
+                                child: Text(
+                                  senior.phone!,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                                        color: Colors.grey[600],
+                                      ),
+                                ),
                               ),
                             ],
                           ),
@@ -382,13 +385,20 @@ class _SeniorCard extends StatelessWidget {
                   ),
                   const SizedBox(width: 12),
                   Expanded(
-                    child: OutlinedButton.icon(
-                      onPressed: () {
-                        // Navigate to messaging with this senior
-                        context.push(AppRoutes.chat, extra: senior.uid);
-                      },
-                      icon: const Icon(Icons.message),
-                      label: const Text('Message'),
+                    child: Consumer(
+                      builder: (context, ref, child) => OutlinedButton.icon(
+                        onPressed: () {
+                          // Start conversation with this senior
+                          MessagingHelper.startConversation(
+                            context: context,
+                            ref: ref,
+                            otherUserId: senior.uid,
+                            otherUserName: senior.name,
+                          );
+                        },
+                        icon: const Icon(Icons.message),
+                        label: const Text('Message'),
+                      ),
                     ),
                   ),
                 ],

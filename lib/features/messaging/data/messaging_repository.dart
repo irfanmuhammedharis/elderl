@@ -42,9 +42,23 @@ class Message {
       senderName: map['senderName'] ?? '',
       content: map['content'] ?? '',
       type: map['type'] ?? 'text',
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate(),
+      createdAt: _parseTimestamp(map['createdAt']),
       isRead: map['isRead'] ?? false,
     );
+  }
+
+  /// Helper to parse timestamp that could be either Timestamp or String
+  static DateTime? _parseTimestamp(dynamic value) {
+    if (value == null) return null;
+    if (value is Timestamp) return value.toDate();
+    if (value is String) {
+      try {
+        return DateTime.parse(value);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
   }
 }
 
@@ -94,11 +108,25 @@ class Conversation {
           ?.map((k, v) => MapEntry(k, v.toString())) ?? {},
       lastMessage: map['lastMessage'] as String?,
       lastSenderId: map['lastSenderId'] as String?,
-      lastMessageAt: (map['lastMessageAt'] as Timestamp?)?.toDate(),
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate(),
+      lastMessageAt: _parseTimestamp(map['lastMessageAt']),
+      createdAt: _parseTimestamp(map['createdAt']),
       unreadCount: map['unreadCount'] ?? 0,
       relatedRequestId: map['relatedRequestId'] as String?,
     );
+  }
+
+  /// Helper to parse timestamp that could be either Timestamp or String
+  static DateTime? _parseTimestamp(dynamic value) {
+    if (value == null) return null;
+    if (value is Timestamp) return value.toDate();
+    if (value is String) {
+      try {
+        return DateTime.parse(value);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
   }
 
   /// Get the other participant's name (for 1-on-1 chats)

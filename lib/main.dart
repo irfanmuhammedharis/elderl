@@ -4,10 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:firebase_core/firebase_core.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_database/firebase_database.dart';
+import 'package:firebase_messaging/firebase_messaging.dart';
 import 'firebase_options.dart';
 import 'core/routing/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'core/services/sync_service.dart';
+import 'core/services/notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -36,19 +38,15 @@ void main() async {
   if (kIsWeb) {
     // Web: Enable IndexedDB persistence with multi-tab synchronization
     // This ensures data syncs properly between browser tabs and with mobile apps
-    FirebaseFirestore.instance.settings = const Settings(
-      persistenceEnabled: true,
-      cacheSizeBytes: Settings.CACHE_SIZE_UNLIMITED,
-    );
-    
-    // Enable multi-tab IndexedDB persistence for web
-    // This allows multiple browser tabs to share the same cache
-    await FirebaseFirestore.instance.enablePersistence(
-      const PersistenceSettings(synchronizeTabs: true),
-    ).catchError((e) {
+    try {
+      await FirebaseFirestore.instance.enablePersistence(
+        const PersistenceSettings(synchronizeTabs: true),
+      );
+    } catch (e) {
       // Persistence may already be enabled or not supported
-      debugPrint('Firestore web persistence setup: $e');
-    });
+      // This is non-fatal - app will work without persistence
+      debugPrint('Firestore web persistence: ${e.toString()}');
+    }
   } else {
     // Mobile (Android/iOS): Use native persistence
     FirebaseFirestore.instance.settings = const Settings(
@@ -67,6 +65,20 @@ void main() async {
     } catch (e) {
       // Realtime Database may not be configured - continue without it
       debugPrint('Realtime Database setup skipped: $e');
+    }
+  }
+
+  // Initialize notification service for push notifications
+  // and real-time in-app request alerts
+  if (!kIsWeb) {
+    try {
+      final notificationService = NotificationService(
+        FirebaseMessaging.instance,
+        FirebaseDatabase.instance,
+      );
+      await notificationService.initialize();
+    } catch (e) {
+      debugPrint('Notification service setup skipped: $e');
     }
   }
 

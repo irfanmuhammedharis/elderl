@@ -358,7 +358,7 @@ class _UserDetailScreenState extends ConsumerState<UserDetailScreen> {
             // UID
             Text(
               'ID: ${user.uid}',
-              style: TextStyle(fontSize: 11, color: Colors.grey[400]),
+              style: TextStyle(fontSize: 12, color: Colors.grey[400]),
             ),
           ],
         ),

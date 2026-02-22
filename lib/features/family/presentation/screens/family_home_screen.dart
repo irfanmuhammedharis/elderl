@@ -5,9 +5,8 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/routing/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/messaging_helper.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
-import '../../../checkin/data/checkin_repository.dart';
-import '../../../requests/data/request_repository.dart';
 import '../controllers/family_controller.dart';
 
 class FamilyHomeScreen extends ConsumerStatefulWidget {
@@ -23,7 +22,7 @@ class _FamilyHomeScreenState extends ConsumerState<FamilyHomeScreen>
   late Animation<double> _fadeAnimation;
   int _currentNavIndex = 0;
 
-  static const _brandColor = Color(0xFF7E57C2);
+  static const _brandColor = AppTheme.familyColor;
   static const _brandDark = Color(0xFF5E35B1);
 
   @override
@@ -119,7 +118,14 @@ class _FamilyHomeScreenState extends ConsumerState<FamilyHomeScreen>
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
                 color: _brandColor, fontWeight: FontWeight.w700)),
         const Spacer(),
-        _iconBtn(Icons.notifications, AppTheme.warningColor, () {}),
+        _iconBtn(Icons.notifications, AppTheme.warningColor, () {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Notifications coming soon'),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }),
         _iconBtn(Icons.person, _brandColor,
             () => context.push(AppRoutes.profile)),
         _iconBtn(Icons.logout, AppTheme.errorColor, () async {
@@ -369,18 +375,24 @@ class _FamilyHomeScreenState extends ConsumerState<FamilyHomeScreen>
                 Row(children: [
                   Icon(Icons.email, size: 15, color: Colors.grey.shade500),
                   const SizedBox(width: 6),
-                  Text(senior.email ?? '',
-                      style: TextStyle(
-                          fontSize: 13, color: Colors.grey.shade600)),
+                  Expanded(
+                    child: Text(senior.email ?? '',
+                        overflow: TextOverflow.ellipsis,
+                        style: TextStyle(
+                            fontSize: 13, color: Colors.grey.shade600)),
+                  ),
                 ]),
                 if (senior.phone != null) ...[
                   const SizedBox(height: 2),
                   Row(children: [
                     Icon(Icons.phone, size: 15, color: Colors.grey.shade500),
                     const SizedBox(width: 6),
-                    Text(senior.phone!,
-                        style: TextStyle(
-                            fontSize: 13, color: Colors.grey.shade600)),
+                    Expanded(
+                      child: Text(senior.phone!,
+                          overflow: TextOverflow.ellipsis,
+                          style: TextStyle(
+                              fontSize: 13, color: Colors.grey.shade600)),
+                    ),
                   ]),
                 ],
               ]),
@@ -526,19 +538,94 @@ class _FamilyHomeScreenState extends ConsumerState<FamilyHomeScreen>
 
   // ───────────── QUICK ACTIONS ─────────────
   Widget _buildQuickActions(BuildContext context, dynamic senior) {
-    return Row(children: [
-      Expanded(
-          child: _actionCard(context, Icons.call, 'Call', AppTheme.successColor,
-              () => _callSenior(senior.phone))),
-      const SizedBox(width: 12),
-      Expanded(
-          child: _actionCard(context, Icons.message, 'Message',
-              AppTheme.infoColor, () => _messageSenior(senior.phone))),
-      const SizedBox(width: 12),
-      Expanded(
-          child: _actionCard(context, Icons.location_on, 'Location',
-              _brandColor, () {})),
-    ]);
+    return Column(
+      children: [
+        Row(children: [
+          Expanded(
+              child: _actionCard(context, Icons.call, 'Call Senior', AppTheme.successColor,
+                  () => _callNumber(senior.phone, 'Senior has no phone number'))),
+          const SizedBox(width: 12),
+          Expanded(
+              child: Consumer(
+                builder: (context, ref, child) => _actionCard(
+                  context, 
+                  Icons.message, 
+                  'Message',
+                  AppTheme.infoColor, 
+                  () => MessagingHelper.startConversation(
+                    context: context,
+                    ref: ref,
+                    otherUserId: senior.uid ?? '',
+                    otherUserName: senior.name ?? 'Senior',
+                  ),
+                ),
+              )),
+          const SizedBox(width: 12),
+          Expanded(
+              child: _actionCard(context, Icons.location_on, 'Location',
+                  _brandColor, () {})),
+        ]),
+        const SizedBox(height: 12),
+        // Emergency Contact Call - calls the senior's registered emergency phone
+        if (senior.emergencyPhone != null || senior.phone != null)
+          Material(
+            color: Colors.transparent,
+            child: InkWell(
+              onTap: () => _callNumber(
+                senior.emergencyPhone ?? senior.phone, 
+                'No emergency number available',
+              ),
+              borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 20),
+                decoration: BoxDecoration(
+                  color: Colors.white,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLarge),
+                  boxShadow: AppTheme.cardShadow,
+                  border: Border.all(color: AppTheme.emergencyColor.withOpacity(0.3)),
+                ),
+                child: Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: AppTheme.emergencyColor.withOpacity(0.1),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Icon(Icons.emergency, color: AppTheme.emergencyColor, size: 24),
+                    ),
+                    const SizedBox(width: 16),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          const Text('Emergency Call',
+                              style: TextStyle(fontWeight: FontWeight.w700, fontSize: 16,
+                                  color: AppTheme.emergencyColor)),
+                          Text(
+                            senior.emergencyContact != null 
+                                ? 'Call ${senior.emergencyContact}' 
+                                : 'Call ${senior.name ?? "Senior"}',
+                            style: const TextStyle(fontSize: 13, color: AppTheme.textSecondaryLight),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(
+                        color: AppTheme.emergencyColor,
+                        borderRadius: BorderRadius.circular(10),
+                      ),
+                      child: const Icon(Icons.call, color: Colors.white, size: 22),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+      ],
+    );
   }
 
   Widget _actionCard(BuildContext ctx, IconData icon, String label, Color c,
@@ -660,14 +747,15 @@ class _FamilyHomeScreenState extends ConsumerState<FamilyHomeScreen>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _nav(Icons.home_rounded, 'Home', 0, _brandColor, () {}),
+              _nav(Icons.home_rounded, 'Home', 0, _brandColor,
+                  () => context.go(AppRoutes.familyHome)),
               _nav(Icons.timeline_rounded, 'Activity', 1, AppTheme.infoColor,
-                  () => context.push(AppRoutes.familyActivity)),
+                  () => context.go(AppRoutes.familyActivity)),
               _nav(Icons.fact_check_rounded, 'Check-ins', 2,
                   AppTheme.successColor,
-                  () => context.push(AppRoutes.familyCheckins)),
+                  () => context.go(AppRoutes.familyCheckins)),
               _nav(Icons.person_rounded, 'Profile', 3, AppTheme.accentColor,
-                  () => context.push(AppRoutes.profile)),
+                  () => context.go(AppRoutes.profile)),
             ],
           ),
         ),
@@ -741,6 +829,7 @@ class _FamilyHomeScreenState extends ConsumerState<FamilyHomeScreen>
               controller: emailController,
               decoration: InputDecoration(
                 labelText: "Senior's Email",
+                hintText: 'e.g. senior@example.com',
                 prefixIcon: const Icon(Icons.email, color: _brandColor),
                 border: OutlineInputBorder(
                     borderRadius:
@@ -768,12 +857,13 @@ class _FamilyHomeScreenState extends ConsumerState<FamilyHomeScreen>
                   child: InkWell(
                     onTap: () async {
                       final email = emailController.text.trim();
-                      if (email.isNotEmpty) {
+                      if (email.isNotEmpty && RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
                         final success = await ref
                             .read(familyLinkControllerProvider.notifier)
                             .linkToSenior(email);
                         if (ctx.mounted) {
                           Navigator.pop(ctx);
+                          emailController.dispose();
                           ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                             content: Row(children: [
                               Icon(
@@ -796,6 +886,16 @@ class _FamilyHomeScreenState extends ConsumerState<FamilyHomeScreen>
                                     AppTheme.radiusMedium)),
                           ));
                         }
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: const Text('Please enter a valid email address'),
+                            backgroundColor: AppTheme.errorColor,
+                            behavior: SnackBarBehavior.floating,
+                            shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(AppTheme.radiusMedium)),
+                          ),
+                        );
                       }
                     },
                     borderRadius: BorderRadius.circular(12),
@@ -842,7 +942,7 @@ class _FamilyHomeScreenState extends ConsumerState<FamilyHomeScreen>
           color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
       child: Text(text,
           style:
-              TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: c)),
+              TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c)),
     );
   }
 
@@ -921,17 +1021,36 @@ class _FamilyHomeScreenState extends ConsumerState<FamilyHomeScreen>
   }
 
   // ───────────── HELPERS ─────────────
-  Future<void> _callSenior(String? phone) async {
-    if (phone != null) {
+  Future<void> _callNumber(String? phone, String errorMsg) async {
+    if (phone != null && phone.isNotEmpty) {
       final uri = Uri.parse('tel:$phone');
-      if (await canLaunchUrl(uri)) await launchUrl(uri);
-    }
-  }
-
-  Future<void> _messageSenior(String? phone) async {
-    if (phone != null) {
-      final uri = Uri.parse('sms:$phone');
-      if (await canLaunchUrl(uri)) await launchUrl(uri);
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      } else {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: const Text('Could not open phone dialer'),
+              backgroundColor: AppTheme.errorColor,
+              behavior: SnackBarBehavior.floating,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(AppTheme.radiusMedium)),
+            ),
+          );
+        }
+      }
+    } else {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(errorMsg),
+            backgroundColor: AppTheme.warningColor,
+            behavior: SnackBarBehavior.floating,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(AppTheme.radiusMedium)),
+          ),
+        );
+      }
     }
   }
 

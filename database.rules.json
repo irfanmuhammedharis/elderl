@@ -43,6 +43,14 @@
     "_sync": {
       ".read": "auth != null",
       ".write": false
+    },
+    "pending_request_alerts": {
+      ".read": "auth != null",
+      "$requestId": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        ".indexOn": ["seniorId", "type", "createdAt", "status"]
+      }
     }
   }
 }

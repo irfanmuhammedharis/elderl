@@ -205,6 +205,9 @@ final adminUserControllerProvider =
         (ref) {
   final authState = ref.watch(authControllerProvider);
   final repository = ref.watch(adminRepositoryProvider);
+  
+  // Keep alive to prevent disposal during async operations
+  ref.keepAlive();
 
   return AdminUserController(
     repository,

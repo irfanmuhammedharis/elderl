@@ -68,15 +68,17 @@ class AuthRepository {
     String? linkedSeniorId,
   }) async {
     try {
+      // Normalize email to lowercase to match findSeniorByEmail queries
+      final normalizedEmail = email.toLowerCase().trim();
       final credential = await _auth.createUserWithEmailAndPassword(
-        email: email,
+        email: normalizedEmail,
         password: password,
       );
       
       if (credential.user != null) {
         final user = AppUser(
           uid: credential.user!.uid,
-          email: email,
+          email: normalizedEmail,
           name: name,
           role: role,
           phone: phone,
@@ -95,19 +97,26 @@ class AuthRepository {
             .set(user.toMap());
         
         // If linking to a senior, update the senior's linked family/caregivers list
+        // Wrapped in separate try-catch so a linking failure doesn't crash the entire signup
         if (linkedSeniorId != null) {
-          final seniorDoc = _firestore
-              .collection(AppConstants.usersCollection)
-              .doc(linkedSeniorId);
-          
-          if (role == AppConstants.roleFamily) {
-            await seniorDoc.update({
-              'linkedFamily': FieldValue.arrayUnion([credential.user!.uid]),
-            });
-          } else if (role == AppConstants.roleCaregiver) {
-            await seniorDoc.update({
-              'assignedCaregivers': FieldValue.arrayUnion([credential.user!.uid]),
-            });
+          try {
+            final seniorDoc = _firestore
+                .collection(AppConstants.usersCollection)
+                .doc(linkedSeniorId);
+            
+            if (role == AppConstants.roleFamily) {
+              await seniorDoc.update({
+                'linkedFamily': FieldValue.arrayUnion([credential.user!.uid]),
+              });
+            } else if (role == AppConstants.roleCaregiver) {
+              await seniorDoc.update({
+                'assignedCaregivers': FieldValue.arrayUnion([credential.user!.uid]),
+              });
+            }
+            debugPrint('Successfully linked ${role} to senior $linkedSeniorId');
+          } catch (linkError) {
+            // Log but don't fail signup — linking can be retried or handled by admin
+            debugPrint('Warning: Could not update senior doc for linking: $linkError');
           }
         }
         

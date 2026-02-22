@@ -1,12 +1,18 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/routing/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
+import '../../../../core/utils/messaging_helper.dart';
+import '../../../../core/services/notification_service.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../../requests/data/request_repository.dart';
 import '../../../emergency/data/emergency_repository.dart';
+import '../../../admin/data/admin_repository.dart';
+import '../../../auth/domain/entities/app_user.dart';
 import '../../data/caregiver_repository.dart';
 
 /// Stream provider for pending requests
@@ -42,8 +48,10 @@ class _CaregiverHomeScreenState extends ConsumerState<CaregiverHomeScreen>
   late AnimationController _fadeController;
   late Animation<double> _fadeAnimation;
   int _currentNavIndex = 0;
+  StreamSubscription<InAppAlert>? _alertSubscription;
+  InAppAlert? _currentAlert;
 
-  static const _brandColor = Color(0xFF26A69A);
+  static const _brandColor = AppTheme.caregiverColor;
   static const _brandDark = Color(0xFF00897B);
 
   @override
@@ -57,10 +65,33 @@ class _CaregiverHomeScreenState extends ConsumerState<CaregiverHomeScreen>
       CurvedAnimation(parent: _fadeController, curve: Curves.easeOut),
     );
     _fadeController.forward();
+
+    // Start listening for real-time request alerts via RTDB
+    _startAlertListener();
+  }
+
+  void _startAlertListener() {
+    final notificationService = ref.read(notificationServiceProvider);
+    notificationService.startRequestAlertStream();
+
+    _alertSubscription = notificationService.alertStream.listen((alert) {
+      if (!mounted) return;
+      // Haptic feedback for new request
+      HapticFeedback.heavyImpact();
+      setState(() => _currentAlert = alert);
+      // Auto-dismiss after 6 seconds
+      Future.delayed(const Duration(seconds: 6), () {
+        if (mounted && _currentAlert?.id == alert.id) {
+          setState(() => _currentAlert = null);
+        }
+      });
+    });
   }
 
   @override
   void dispose() {
+    _alertSubscription?.cancel();
+    ref.read(notificationServiceProvider).stopRequestAlertStream();
     _fadeController.dispose();
     super.dispose();
   }
@@ -93,6 +124,8 @@ class _CaregiverHomeScreenState extends ConsumerState<CaregiverHomeScreen>
           child: Column(
             children: [
               _buildAppBar(context, ref),
+              // Real-time in-app alert banner
+              if (_currentAlert != null) _buildAlertBanner(_currentAlert!),
               Expanded(
                 child: FadeTransition(
                   opacity: _fadeAnimation,
@@ -115,6 +148,18 @@ class _CaregiverHomeScreenState extends ConsumerState<CaregiverHomeScreen>
                           _buildStatsRow(pendingAsync, myTasksAsync,
                               emergenciesAsync),
                           const SizedBox(height: 28),
+                          // Linked Seniors Section
+                          if (user?.assignedSeniors != null && user!.assignedSeniors!.isNotEmpty) ...[
+                            _buildSection(
+                              context,
+                              'My Seniors',
+                              Icons.elderly,
+                              _brandColor,
+                            ),
+                            const SizedBox(height: 12),
+                            _buildLinkedSeniors(context, user.assignedSeniors!),
+                            const SizedBox(height: 24),
+                          ],
                           _buildSection(
                             context,
                             'Active Emergencies',
@@ -215,6 +260,75 @@ class _CaregiverHomeScreenState extends ConsumerState<CaregiverHomeScreen>
         child: Icon(icon, size: 22, color: c),
       ),
       onPressed: onTap,
+    );
+  }
+
+  // ───────────── REAL-TIME ALERT BANNER ─────────────
+  Widget _buildAlertBanner(InAppAlert alert) {
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 300),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [Colors.orange.shade600, Colors.deepOrange.shade500],
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.orange.withOpacity(0.4),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            padding: const EdgeInsets.all(8),
+            decoration: BoxDecoration(
+              color: Colors.white.withOpacity(0.2),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: const Icon(Icons.notification_important,
+                color: Colors.white, size: 24),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  alert.title,
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontWeight: FontWeight.w700,
+                    fontSize: 14,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  alert.body,
+                  style: TextStyle(
+                    color: Colors.white.withOpacity(0.9),
+                    fontSize: 13,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            icon: const Icon(Icons.close, color: Colors.white, size: 20),
+            padding: EdgeInsets.zero,
+            constraints: const BoxConstraints(),
+            onPressed: () => setState(() => _currentAlert = null),
+          ),
+        ],
+      ),
     );
   }
 
@@ -594,13 +708,14 @@ class _CaregiverHomeScreenState extends ConsumerState<CaregiverHomeScreen>
           child: Row(
             mainAxisAlignment: MainAxisAlignment.spaceAround,
             children: [
-              _nav(Icons.home_rounded, 'Home', 0, _brandColor, () {}),
+              _nav(Icons.home_rounded, 'Home', 0, _brandColor,
+                  () => context.go(AppRoutes.caregiverHome)),
               _nav(Icons.assignment_rounded, 'Requests', 1, AppTheme.warningColor,
-                  () => context.push(AppRoutes.caregiverRequests)),
+                  () => context.go(AppRoutes.caregiverRequests)),
               _nav(Icons.people_rounded, 'Seniors', 2, AppTheme.infoColor,
-                  () => context.push(AppRoutes.caregiverSeniors)),
+                  () => context.go(AppRoutes.caregiverSeniors)),
               _nav(Icons.person_rounded, 'Profile', 3, AppTheme.accentColor,
-                  () => context.push(AppRoutes.profile)),
+                  () => context.go(AppRoutes.profile)),
             ],
           ),
         ),
@@ -674,7 +789,7 @@ class _CaregiverHomeScreenState extends ConsumerState<CaregiverHomeScreen>
           color: c.withOpacity(0.1), borderRadius: BorderRadius.circular(6)),
       child: Text(text,
           style:
-              TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: c)),
+              TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: c)),
     );
   }
 
@@ -829,6 +944,148 @@ class _CaregiverHomeScreenState extends ConsumerState<CaregiverHomeScreen>
     if (h < 12) return 'Good Morning';
     if (h < 17) return 'Good Afternoon';
     return 'Good Evening';
+  }
+
+  // ───────────── LINKED SENIORS ─────────────
+  Widget _buildLinkedSeniors(BuildContext context, List<String> seniorIds) {
+    final adminRepo = ref.watch(adminRepositoryProvider);
+    
+    return FutureBuilder<List<AppUser?>>(
+      future: Future.wait(
+        seniorIds.map((id) => adminRepo.getUserById(id)),
+      ),
+      builder: (context, snapshot) {
+        if (snapshot.connectionState == ConnectionState.waiting) {
+          return _shimmer();
+        }
+        
+        if (snapshot.hasError) {
+          return _errorCard('Failed to load seniors');
+        }
+        
+        final seniors = (snapshot.data ?? []).whereType<AppUser>().toList();
+        if (seniors.isEmpty) {
+          return _empty(
+            Icons.person_off,
+            'No seniors assigned',
+            'Contact admin to assign seniors',
+          );
+        }
+        
+        return _card(
+          Column(
+            children: seniors.asMap().entries.map((entry) {
+              final index = entry.key;
+              final senior = entry.value;
+              final isLast = index == seniors.length - 1;
+              
+              return Column(
+                children: [
+                  Padding(
+                    padding: const EdgeInsets.all(16),
+                    child: Row(
+                      children: [
+                        // Avatar
+                        CircleAvatar(
+                          radius: 28,
+                          backgroundColor: _brandColor.withOpacity(0.1),
+                          backgroundImage: senior.avatarUrl != null
+                              ? NetworkImage(senior.avatarUrl!)
+                              : null,
+                          child: senior.avatarUrl == null
+                              ? Text(
+                                  senior.name[0].toUpperCase(),
+                                  style: const TextStyle(
+                                    fontSize: 24,
+                                    fontWeight: FontWeight.bold,
+                                    color: _brandColor,
+                                  ),
+                                )
+                              : null,
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                senior.name,
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                  fontSize: 16,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              if (senior.phone != null)
+                                Row(
+                                  children: [
+                                    Icon(
+                                      Icons.phone,
+                                      size: 14,
+                                      color: Colors.grey[600],
+                                    ),
+                                    const SizedBox(width: 4),
+                                    Expanded(
+                                      child: Text(
+                                        senior.phone!,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: TextStyle(
+                                          fontSize: 13,
+                                          color: Colors.grey[600],
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                            ],
+                          ),
+                        ),
+                        // Quick Actions
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Consumer(
+                              builder: (context, ref, child) => _iconBtn(
+                                Icons.message,
+                                _brandColor,
+                                () {
+                                  // Start conversation with senior
+                                  MessagingHelper.startConversation(
+                                    context: context,
+                                    ref: ref,
+                                    otherUserId: senior.uid,
+                                    otherUserName: senior.name,
+                                  );
+                                },
+                              ),
+                            ),
+                            _iconBtn(
+                              Icons.arrow_forward_ios,
+                              _brandColor,
+                              () {
+                                // Filter requests by senior
+                                context.push('${AppRoutes.caregiverRequests}?seniorId=${senior.uid}');
+                              },
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  ),
+                  if (!isLast)
+                    Divider(
+                      height: 1,
+                      color: Colors.grey.shade200,
+                      indent: 16,
+                      endIndent: 16,
+                    ),
+                ],
+              );
+            }).toList(),
+          ),
+        );
+      },
+    );
   }
 
   IconData _typeIcon(String t) {

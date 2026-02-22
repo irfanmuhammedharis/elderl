@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import '../../features/auth/presentation/screens/login_screen.dart';
 import '../../features/auth/presentation/screens/signup_screen.dart';
+import '../../features/auth/presentation/screens/forgot_password_screen.dart';
 import '../../features/auth/presentation/screens/pending_approval_screen.dart';
 import '../../features/admin/presentation/screens/web_admin_dashboard.dart';
 import '../../features/senior/presentation/screens/senior_home_screen.dart';
@@ -14,6 +15,8 @@ import '../../features/caregiver/presentation/screens/caregiver_history_screen.d
 import '../../features/family/presentation/screens/family_home_screen.dart';
 import '../../features/family/presentation/screens/family_activity_screen.dart';
 import '../../features/family/presentation/screens/family_checkins_screen.dart';
+import '../../features/activity/presentation/screens/family_activity_feed_screen.dart';
+import '../../features/emergency/presentation/screens/emergency_alerts_list_screen.dart';
 import '../../features/admin/presentation/screens/admin_home_screen.dart';
 import '../../features/admin/presentation/screens/admin_seniors_screen.dart';
 import '../../features/admin/presentation/screens/admin_caregivers_screen.dart';
@@ -23,6 +26,7 @@ import '../../features/admin/presentation/screens/admin_analytics_screen.dart';
 import '../../features/admin/presentation/screens/admin_settings_screen.dart';
 import '../../features/admin/presentation/screens/user_approval_screen.dart';
 import '../../features/admin/presentation/screens/user_detail_screen.dart';
+import '../../features/admin/presentation/screens/admin_link_management_screen.dart';
 import '../../features/checkin/presentation/screens/daily_checkin_screen.dart';
 import '../../features/emergency/presentation/screens/emergency_screen.dart';
 import '../../features/requests/presentation/screens/create_request_screen.dart';
@@ -36,6 +40,7 @@ class AppRoutes {
   // Auth Routes
   static const String login = '/login';
   static const String signup = '/signup';
+  static const String forgotPassword = '/forgot-password';
   static const String pendingApproval = '/pending-approval';
   static const String createTestUsers = '/dev/create-users';
 
@@ -53,13 +58,13 @@ class AppRoutes {
   static const String caregiverRequests = '/caregiver/requests';
   static const String caregiverSeniors = '/caregiver/seniors';
   static const String caregiverHistory = '/caregiver/history';
-  static const String caregiverRequestDetail = '/caregiver/request';
+  static const String caregiverEmergencyAlerts = '/caregiver/emergency-alerts';
 
   // Family Routes
   static const String familyHome = '/family';
   static const String familyActivity = '/family/activity';
   static const String familyCheckins = '/family/checkins';
-  static const String familySeniorDetail = '/family/senior';
+  static const String familyActivityFeed = '/family/activity-feed';
 
   // Admin Routes
   static const String adminHome = '/admin';
@@ -71,6 +76,7 @@ class AppRoutes {
   static const String adminEmergencies = '/admin/emergencies';
   static const String adminAnalytics = '/admin/analytics';
   static const String adminSettings = '/admin/settings';
+  static const String adminLinkManagement = '/admin/link-management';
 
   // Messaging Routes
   static const String conversations = '/messages';
@@ -117,7 +123,7 @@ bool _isAdminOnlyRoute(String location) {
 /// App router provider
 final appRouterProvider = Provider<GoRouter>((ref) {
   return GoRouter(
-    initialLocation: kIsWeb ? AppRoutes.login : AppRoutes.login,
+    initialLocation: AppRoutes.login,
     redirect: (context, state) {
       final location = state.uri.path;
       
@@ -144,6 +150,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.signup,
         name: 'signup',
         builder: (context, state) => const SignupScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.forgotPassword,
+        name: 'forgotPassword',
+        builder: (context, state) => const ForgotPasswordScreen(),
       ),
       GoRoute(
         path: AppRoutes.pendingApproval,
@@ -211,6 +222,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'caregiverHistory',
         builder: (context, state) => const CaregiverHistoryScreen(),
       ),
+      GoRoute(
+        path: AppRoutes.caregiverEmergencyAlerts,
+        name: 'caregiverEmergencyAlerts',
+        builder: (context, state) => const EmergencyAlertsListScreen(),
+      ),
 
       // Family Routes
       GoRoute(
@@ -227,6 +243,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.familyCheckins,
         name: 'familyCheckins',
         builder: (context, state) => const FamilyCheckinsScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.familyActivityFeed,
+        name: 'familyActivityFeed',
+        builder: (context, state) => const FamilyActivityFeedScreen(),
       ),
 
       // Admin Routes
@@ -277,6 +298,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         path: AppRoutes.adminSettings,
         name: 'adminSettings',
         builder: (context, state) => const AdminSettingsScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.adminLinkManagement,
+        name: 'adminLinkManagement',
+        builder: (context, state) => const AdminLinkManagementScreen(),
       ),
 
       // Common Routes

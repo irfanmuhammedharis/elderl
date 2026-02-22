@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/routing/app_router.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../common_widgets/sync_indicator.dart';
@@ -52,7 +53,6 @@ class _SeniorHomeScreenState extends ConsumerState<SeniorHomeScreen>
   Widget build(BuildContext context) {
     final authState = ref.watch(authControllerProvider);
     final user = authState.user;
-    final size = MediaQuery.of(context).size;
 
     return Scaffold(
       body: Container(
@@ -135,7 +135,25 @@ class _SeniorHomeScreenState extends ConsumerState<SeniorHomeScreen>
                           color: AppTheme.successColor,
                           onPressed: () => context.push(AppRoutes.dailyCheckin),
                         ),
-                        const SizedBox(height: 32),
+                        const SizedBox(height: 12),
+
+                        // Call Family Member Button
+                        if (user?.emergencyPhone != null || user?.phone != null)
+                          _buildMainButton(
+                            context,
+                            icon: Icons.call,
+                            label: 'Call Family',
+                            description: user?.emergencyContact ?? 'Call your emergency contact',
+                            color: AppTheme.familyColor,
+                            onPressed: () => _callNumber(
+                              context,
+                              user?.emergencyPhone ?? user?.phone,
+                            ),
+                          ),
+                        if (user?.emergencyPhone != null || user?.phone != null)
+                          const SizedBox(height: 12),
+
+                        const SizedBox(height: 20),
 
                         // Emergency Button - Most prominent
                         _buildEmergencyButton(context),
@@ -416,5 +434,32 @@ class _SeniorHomeScreenState extends ConsumerState<SeniorHomeScreen>
         ),
       ),
     );
+  }
+
+  Future<void> _callNumber(BuildContext context, String? phone) async {
+    if (phone != null && phone.isNotEmpty) {
+      final uri = Uri.parse('tel:$phone');
+      if (await canLaunchUrl(uri)) {
+        await launchUrl(uri);
+      } else {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Could not open phone dialer'),
+              backgroundColor: AppTheme.errorColor,
+            ),
+          );
+        }
+      }
+    } else {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('No emergency contact number available'),
+            backgroundColor: AppTheme.warningColor,
+          ),
+        );
+      }
+    }
   }
 }

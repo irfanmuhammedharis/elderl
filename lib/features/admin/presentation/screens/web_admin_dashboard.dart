@@ -6,14 +6,6 @@ import '../../../auth/domain/entities/app_user.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../controllers/admin_controller.dart';
 
-/// Role-specific colors for UI
-class _RoleColors {
-  static const Color senior = Color(0xFF5C6BC0);
-  static const Color caregiver = Color(0xFF26A69A);
-  static const Color family = Color(0xFF7E57C2);
-  static const Color admin = Color(0xFF1565C0);
-}
-
 /// Web Admin Dashboard - Simplified admin panel for web platform
 /// Only includes user approval functionality
 class WebAdminDashboard extends ConsumerStatefulWidget {
@@ -191,19 +183,19 @@ class _WebAdminDashboardState extends ConsumerState<WebAdminDashboard>
             'Seniors',
             stats['seniors'] ?? 0,
             Icons.elderly,
-            _RoleColors.senior,
+            AppTheme.seniorColor,
           ),
           _buildStatItem(
             'Caregivers',
             stats['caregivers'] ?? 0,
             Icons.medical_services,
-            _RoleColors.caregiver,
+            AppTheme.caregiverColor,
           ),
           _buildStatItem(
             'Family',
             stats['family'] ?? 0,
             Icons.family_restroom,
-            _RoleColors.family,
+            AppTheme.familyColor,
           ),
           _buildStatItem(
             'Total Users',
@@ -412,30 +404,37 @@ class _WebAdminDashboardState extends ConsumerState<WebAdminDashboard>
                 // Action Buttons
                 if (isPending) ...[
                   Column(
+                    mainAxisSize: MainAxisSize.min,
                     children: [
-                      ElevatedButton.icon(
-                        onPressed: () => _approveUser(user),
-                        icon: const Icon(Icons.check, size: 18),
-                        label: const Text('Approve'),
-                        style: ElevatedButton.styleFrom(
-                          backgroundColor: Colors.green,
-                          foregroundColor: Colors.white,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
+                      SizedBox(
+                        width: 120,
+                        child: ElevatedButton.icon(
+                          onPressed: () => _approveUser(user),
+                          icon: const Icon(Icons.check, size: 18),
+                          label: const Text('Approve'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: Colors.green,
+                            foregroundColor: Colors.white,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
                           ),
                         ),
                       ),
                       const SizedBox(height: 8),
-                      OutlinedButton.icon(
-                        onPressed: () => _rejectUser(user),
-                        icon: const Icon(Icons.close, size: 18),
-                        label: const Text('Reject'),
-                        style: OutlinedButton.styleFrom(
-                          foregroundColor: Colors.red,
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
+                      SizedBox(
+                        width: 120,
+                        child: OutlinedButton.icon(
+                          onPressed: () => _rejectUser(user),
+                          icon: const Icon(Icons.close, size: 18),
+                          label: const Text('Reject'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: Colors.red,
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 16,
+                              vertical: 8,
+                            ),
                           ),
                         ),
                       ),
@@ -500,7 +499,7 @@ class _WebAdminDashboardState extends ConsumerState<WebAdminDashboard>
           Text(
             role.toUpperCase(),
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: FontWeight.bold,
               color: _getRoleColor(role),
             ),
@@ -539,7 +538,7 @@ class _WebAdminDashboardState extends ConsumerState<WebAdminDashboard>
           Text(
             status.name.toUpperCase(),
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 12,
               fontWeight: FontWeight.bold,
               color: color,
             ),
@@ -549,20 +548,7 @@ class _WebAdminDashboardState extends ConsumerState<WebAdminDashboard>
     );
   }
 
-  Color _getRoleColor(String role) {
-    switch (role) {
-      case 'senior':
-        return _RoleColors.senior;
-      case 'caregiver':
-        return _RoleColors.caregiver;
-      case 'family':
-        return _RoleColors.family;
-      case 'admin':
-        return _RoleColors.admin;
-      default:
-        return Colors.grey;
-    }
-  }
+  Color _getRoleColor(String role) => AppTheme.roleColor(role);
 
   IconData _getRoleIcon(String role) {
     switch (role) {
@@ -625,6 +611,7 @@ class _WebAdminDashboardState extends ConsumerState<WebAdminDashboard>
 
   Future<void> _rejectUser(AppUser user) async {
     final reasonController = TextEditingController();
+    try {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -685,6 +672,9 @@ class _WebAdminDashboardState extends ConsumerState<WebAdminDashboard>
           );
         }
       }
+    }
+    } finally {
+      reasonController.dispose();
     }
   }
 }

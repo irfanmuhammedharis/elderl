@@ -173,7 +173,7 @@ class _EditProfileScreenState extends ConsumerState<EditProfileScreen>
                           ),
                           child: Center(
                             child: Text(
-                              (widget.user.name ?? 'U')[0].toUpperCase(),
+                              widget.user.name.isNotEmpty ? widget.user.name[0].toUpperCase() : 'U',
                               style: const TextStyle(
                                   fontSize: 32,
                                   color: Colors.white,

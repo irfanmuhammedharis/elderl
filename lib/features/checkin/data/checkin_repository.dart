@@ -36,9 +36,23 @@ class CheckIn {
       seniorId: map['seniorId'] ?? '',
       status: map['status'] ?? AppConstants.checkinPending,
       message: map['message'],
-      checkinTime: (map['checkinTime'] as Timestamp?)?.toDate(),
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate(),
+      checkinTime: _parseTimestamp(map['checkinTime']),
+      createdAt: _parseTimestamp(map['createdAt']),
     );
+  }
+
+  /// Helper to parse timestamp that could be either Timestamp or String
+  static DateTime? _parseTimestamp(dynamic value) {
+    if (value == null) return null;
+    if (value is Timestamp) return value.toDate();
+    if (value is String) {
+      try {
+        return DateTime.parse(value);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
   }
 }
 

@@ -331,6 +331,30 @@ class EmergencyRepository {
     await updateEmergencyStatus(emergencyId, 'cancelled');
   }
 
+  /// Stream emergencies for linked seniors (for caregivers/family)
+  Stream<List<EmergencyAlert>> streamEmergenciesForLinkedSeniors(List<String> seniorIds) {
+    if (seniorIds.isEmpty) {
+      return Stream.value([]);
+    }
+
+    return _realtimeDb.stream(_activeEmergenciesPath).map((event) {
+      if (!event.snapshot.exists || event.snapshot.value == null) {
+        return <EmergencyAlert>[];
+      }
+      
+      final data = event.snapshot.value as Map<dynamic, dynamic>;
+      return data.entries
+          .map((e) => EmergencyAlert.fromMap(
+                e.value as Map<dynamic, dynamic>,
+                id: e.key.toString(),
+              ))
+          .where((e) => seniorIds.contains(e.seniorId) && 
+                       (e.status == 'active' || e.status == 'responded'))
+          .toList()
+        ..sort((a, b) => (b.createdAt ?? 0).compareTo(a.createdAt ?? 0));
+    });
+  }
+
   /// Enable offline persistence for emergencies
   void enableOfflineSupport() {
     _realtimeDb.enablePersistence();

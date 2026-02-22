@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import '../../../../core/routing/app_router.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../data/messaging_repository.dart';
 import '../controllers/messaging_controller.dart';
-import 'chat_screen.dart';
 
 /// Screen displaying list of conversations
 class ConversationsScreen extends ConsumerWidget {
@@ -161,14 +161,9 @@ class _ConversationTile extends ConsumerWidget {
         ],
       ),
       onTap: () {
-        Navigator.push(
-          context,
-          MaterialPageRoute(
-            builder: (context) => ChatScreen(
-              conversationId: conversation.id!,
-              otherUserName: otherName,
-            ),
-          ),
+        final otherUserId = conversation.getOtherParticipantId(currentUserId);
+        context.push(
+          '${AppRoutes.chat}?conversationId=${conversation.id!}&otherUserName=${Uri.encodeComponent(otherName)}${otherUserId != null ? '&otherUserId=$otherUserId' : ''}',
         );
       },
       onLongPress: () => _showOptionsDialog(context, ref),

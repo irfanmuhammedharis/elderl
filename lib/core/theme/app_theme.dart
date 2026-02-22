@@ -36,6 +36,28 @@ class AppTheme {
   static const Color borderLight = Color(0xFFE2E8F0);
   static const Color borderDark = Color(0xFF334155);
 
+  // Role Colors — centralized to avoid duplication across screens
+  static const Color seniorColor = Color(0xFF5C6BC0);    // Indigo
+  static const Color caregiverColor = Color(0xFF26A69A);  // Teal
+  static const Color familyColor = Color(0xFF7E57C2);     // Purple
+  static const Color adminColor = Color(0xFF1565C0);      // Blue
+
+  /// Returns the theme color for a given user role string.
+  static Color roleColor(String? role) {
+    switch (role?.toLowerCase()) {
+      case 'senior':
+        return seniorColor;
+      case 'caregiver':
+        return caregiverColor;
+      case 'family':
+        return familyColor;
+      case 'admin':
+        return adminColor;
+      default:
+        return primaryColor;
+    }
+  }
+
   // Gradients
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,

@@ -499,13 +499,26 @@ class _AdminSeniorsScreenState extends ConsumerState<AdminSeniorsScreen> {
     );
 
     if (confirmed == true && mounted) {
-      // Approval logic handled by controller
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('${senior.name} has been approved'),
-          backgroundColor: Colors.green,
-        ),
-      );
+      try {
+        await ref.read(adminUserControllerProvider.notifier).approveUser(senior.uid);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${senior.name} has been approved'),
+              backgroundColor: Colors.green,
+            ),
+          );
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to approve: $e'),
+              backgroundColor: AppTheme.errorColor,
+            ),
+          );
+        }
+      }
     }
   }
 }

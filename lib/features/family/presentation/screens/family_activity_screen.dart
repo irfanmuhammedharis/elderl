@@ -431,7 +431,7 @@ class _FamilyActivityScreenState extends ConsumerState<FamilyActivityScreen> {
       child: Text(
         status.toUpperCase(),
         style: TextStyle(
-          fontSize: 10,
+          fontSize: 12,
           fontWeight: FontWeight.bold,
           color: color,
         ),

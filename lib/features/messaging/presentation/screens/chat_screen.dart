@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 import '../../../auth/data/user_repository.dart';
@@ -100,7 +101,7 @@ class _ChatScreenState extends ConsumerState<ChatScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Chat cleared successfully')),
         );
-        Navigator.pop(context);
+        context.pop();
       }
     } catch (e) {
       if (mounted) {
@@ -444,7 +445,7 @@ class _MessageBubble extends StatelessWidget {
                     _formatTime(message.createdAt!),
                     style: TextStyle(
                       color: isMe ? Colors.white70 : Colors.grey,
-                      fontSize: 11,
+                      fontSize: 12,
                     ),
                   ),
                 if (isMe) ...[

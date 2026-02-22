@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:intl/intl.dart';
 import '../../../../core/routing/app_router.dart';
+import '../../../auth/domain/entities/app_user.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
 import 'edit_profile_screen.dart';
@@ -38,20 +39,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     super.dispose();
   }
 
-  Color _roleColor(String? role) {
-    switch (role) {
-      case 'senior':
-        return AppTheme.primaryColor;
-      case 'caregiver':
-        return const Color(0xFF26A69A);
-      case 'family':
-        return const Color(0xFF7E57C2);
-      case 'admin':
-        return const Color(0xFF1565C0);
-      default:
-        return AppTheme.textSecondaryLight;
-    }
-  }
+  Color _roleColor(String? role) => AppTheme.roleColor(role);
 
   String _roleLabel(String? role) {
     switch (role) {
@@ -158,7 +146,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
   }
 
   Widget _buildAvatarSection(
-      BuildContext context, dynamic user, Color rc) {
+      BuildContext context, AppUser? user, Color rc) {
     return Column(children: [
       Container(
         width: 110,
@@ -175,7 +163,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
         ),
         child: Center(
           child: Text(
-            (user?.name ?? 'U')[0].toUpperCase(),
+            ((user?.name.isNotEmpty ?? false) ? user!.name[0] : 'U').toUpperCase(),
             style: const TextStyle(
                 fontSize: 44, color: Colors.white, fontWeight: FontWeight.w700),
           ),
@@ -205,7 +193,7 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
     ]);
   }
 
-  Widget _buildInfoCard(BuildContext context, dynamic user, Color rc) {
+  Widget _buildInfoCard(BuildContext context, AppUser? user, Color rc) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -269,14 +257,13 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen>
 
   Widget _divider() => Divider(height: 1, color: Colors.grey.shade200);
 
-  Widget _buildEditButton(BuildContext context, dynamic user, Color rc) {
+  Widget _buildEditButton(BuildContext context, AppUser? user, Color rc) {
     return Material(
       color: Colors.transparent,
       child: InkWell(
         onTap: () {
           if (user != null) {
-            Navigator.push(
-              context,
+            Navigator.of(context).push(
               MaterialPageRoute(
                   builder: (_) => EditProfileScreen(user: user)),
             );

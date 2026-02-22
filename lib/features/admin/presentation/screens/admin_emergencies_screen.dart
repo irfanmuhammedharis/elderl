@@ -218,7 +218,7 @@ class _AdminEmergenciesScreenState extends ConsumerState<AdminEmergenciesScreen>
           ),
           Text(
             label,
-            style: TextStyle(fontSize: 11, color: Colors.grey[600]),
+            style: TextStyle(fontSize: 12, color: Colors.grey[600]),
           ),
         ],
       ),
@@ -333,7 +333,7 @@ class _EmergencyCard extends ConsumerWidget {
                                 'ACTIVE',
                                 style: TextStyle(
                                   color: Colors.white,
-                                  fontSize: 10,
+                                  fontSize: 12,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),

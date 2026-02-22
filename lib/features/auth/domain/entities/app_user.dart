@@ -135,6 +135,20 @@ class AppUser {
     }
   }
 
+  /// Helper to parse timestamp that could be either Timestamp or String
+  static DateTime? _parseTimestamp(dynamic value) {
+    if (value == null) return null;
+    if (value is Timestamp) return value.toDate();
+    if (value is String) {
+      try {
+        return DateTime.parse(value);
+      } catch (e) {
+        return null;
+      }
+    }
+    return null;
+  }
+
   /// Factory constructor for Firestore documents
   factory AppUser.fromMap(Map<String, dynamic> map) {
     return AppUser(
@@ -152,14 +166,14 @@ class AppUser {
           (map['assignedSeniors'] as List<dynamic>?)?.cast<String>(),
       assignedCaregivers:
           (map['assignedCaregivers'] as List<dynamic>?)?.cast<String>(),
-      createdAt: (map['createdAt'] as Timestamp?)?.toDate(),
-      lastActiveAt: (map['lastActiveAt'] as Timestamp?)?.toDate(),
-      lastLogin: (map['lastLogin'] as Timestamp?)?.toDate(),
+      createdAt: _parseTimestamp(map['createdAt']),
+      lastActiveAt: _parseTimestamp(map['lastActiveAt']),
+      lastLogin: _parseTimestamp(map['lastLogin']),
       approvalStatus: _parseApprovalStatus(map['approvalStatus'] as String?),
       approvedBy: map['approvedBy'] as String?,
-      approvedAt: (map['approvedAt'] as Timestamp?)?.toDate(),
+      approvedAt: _parseTimestamp(map['approvedAt']),
       rejectionReason: map['rejectionReason'] as String?,
-      dateOfBirth: (map['dateOfBirth'] as Timestamp?)?.toDate(),
+      dateOfBirth: _parseTimestamp(map['dateOfBirth']),
       emergencyContact: map['emergencyContact'] as String?,
       emergencyPhone: map['emergencyPhone'] as String?,
       medicalConditions: map['medicalConditions'] as String?,
