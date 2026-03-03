@@ -1,0 +1,128 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Helper function to check if user is authenticated
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    // Helper function to check if user is admin
+    function isAdmin() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin';
+    }
+    
+    // Helper function to check if user is approved
+    function isApproved() {
+      return isAuthenticated() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.approvalStatus == 'approved';
+    }
+    
+    // Helper function to check if user owns the document
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+    
+    // Users collection
+    match /users/{userId} {
+      // Anyone authenticated can read their own profile
+      // Admins can read all profiles
+      // Approved users can read other users for messaging/linking
+      allow read: if isOwner(userId) || isAdmin() || isApproved();
+      
+      // Users can create their own profile on signup
+      allow create: if isOwner(userId);
+      
+      // Users can update their own profile (except approval fields)
+      // Admins can update any profile including approval fields
+      allow update: if isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys()
+        .hasAny(['approvalStatus', 'approvedBy', 'approvedAt', 'role']) || isAdmin();
+      
+      // Only admins can delete users
+      allow delete: if isAdmin();
+    }
+    
+    // Requests collection (help requests from seniors)
+    match /requests/{requestId} {
+      // Seniors can read their own requests
+      // Caregivers can read all requests (to accept them)
+      // Family members can read requests of their linked senior
+      // Admins can read all
+      allow read: if isAuthenticated() && isApproved();
+      
+      // Only approved seniors can create requests
+      allow create: if isApproved() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'senior';
+      
+      // Seniors can update their own requests (cancel)
+      // Caregivers can update requests (accept, complete)
+      // Admins can update any request
+      allow update: if isApproved() || isAdmin();
+      
+      // Only admins can delete requests
+      allow delete: if isAdmin();
+    }
+    
+    // Check-ins collection
+    match /checkins/{checkinId} {
+      // Users can read their own check-ins
+      // Family can read their linked senior's check-ins
+      // Caregivers can read assigned seniors' check-ins
+      // Admins can read all
+      allow read: if isAuthenticated() && isApproved();
+      
+      // Only approved seniors can create check-ins
+      allow create: if isApproved() && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'senior';
+      
+      // Check-ins generally shouldn't be updated or deleted
+      allow update, delete: if isAdmin();
+    }
+    
+    // Messages/Conversations collection
+    match /conversations/{conversationId} {
+      // Participants can read their conversations
+      allow read: if isApproved() && 
+        request.auth.uid in resource.data.participantIds;
+      
+      // Approved users can create conversations
+      allow create: if isApproved();
+      
+      // Participants can update their conversations
+      allow update: if isApproved() && 
+        request.auth.uid in resource.data.participantIds;
+      
+      // Participants can delete their conversations
+      allow delete: if isApproved() && 
+        request.auth.uid in resource.data.participantIds;
+      
+      // Messages subcollection
+      match /messages/{messageId} {
+        allow read: if isApproved() && 
+          request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        
+        allow create: if isApproved() && 
+          request.auth.uid in get(/databases/$(database)/documents/conversations/$(conversationId)).data.participantIds;
+        
+        allow update, delete: if isAdmin();
+      }
+    }
+    
+    // Profiles collection (extended profile data)
+    match /profiles/{userId} {
+      allow read: if isOwner(userId) || isAdmin() || isApproved();
+      allow create, update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+    
+    // Sync check collection - used for cross-platform sync monitoring
+    // This lightweight collection helps verify connectivity and sync status
+    match /_sync_check/{docId} {
+      // Any authenticated user can read sync check documents
+      allow read: if isAuthenticated();
+      // Only the system (via admin SDK) or admins can write
+      allow write: if isAdmin();
+    }
+  }
+}

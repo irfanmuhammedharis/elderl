@@ -1,0 +1,48 @@
+{
+  "rules": {
+    "emergencies": {
+      ".read": "auth != null",
+      "$emergencyId": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        ".validate": "newData.hasChildren(['seniorId', 'seniorName', 'status'])",
+        "seniorId": {
+          ".validate": "newData.isString()"
+        },
+        "seniorName": {
+          ".validate": "newData.isString()"
+        },
+        "status": {
+          ".validate": "newData.isString() && (newData.val() == 'active' || newData.val() == 'responded' || newData.val() == 'resolved' || newData.val() == 'cancelled')"
+        }
+      }
+    },
+    "active_emergencies": {
+      ".read": "auth != null",
+      "$emergencyId": {
+        ".read": "auth != null",
+        ".write": "auth != null",
+        ".indexOn": ["seniorId", "status", "createdAt"]
+      }
+    },
+    "emergency_history": {
+      "$userId": {
+        ".read": "auth != null && auth.uid == $userId",
+        ".write": "auth != null && auth.uid == $userId",
+        "$emergencyId": {
+          ".validate": "newData.hasChildren(['seniorId', 'status', 'createdAt'])"
+        }
+      }
+    },
+    "presence": {
+      "$userId": {
+        ".read": "auth != null",
+        ".write": "auth != null && auth.uid == $userId"
+      }
+    },
+    "_sync": {
+      ".read": "auth != null",
+      ".write": false
+    }
+  }
+}
