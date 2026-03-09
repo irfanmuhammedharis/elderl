@@ -225,22 +225,26 @@ class RequestRepository {
 
   /// Get assigned requests for a caregiver
   Future<List<HelpRequest>> getAssignedRequests(String caregiverId) async {
+    // Query by assignedTo only; filter status and sort client-side to avoid
+    // a composite index on (assignedTo, status, createdAt).
     final snapshot = await _firestoreService.query(
       AppConstants.requestsCollection,
       filters: [
         QueryFilter(field: 'assignedTo', isEqualTo: caregiverId),
-        QueryFilter(field: 'status', whereIn: [
-          AppConstants.statusAccepted,
-          AppConstants.statusInProgress,
-        ]),
       ],
-      orderBy: 'createdAt',
-      descending: true,
     );
 
-    return snapshot.docs
+    final activeStatuses = {
+      AppConstants.statusAccepted,
+      AppConstants.statusInProgress,
+    };
+    final results = snapshot.docs
         .map((doc) => HelpRequest.fromMap(doc.data(), id: doc.id))
+        .where((r) => activeStatuses.contains(r.status))
         .toList();
+    results.sort((a, b) =>
+        (b.createdAt ?? DateTime(2000)).compareTo(a.createdAt ?? DateTime(2000)));
+    return results;
   }
 
   /// Stream requests for a senior

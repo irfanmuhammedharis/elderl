@@ -198,6 +198,58 @@ class AdminUserController extends StateNotifier<AsyncValue<void>> {
       return false;
     }
   }
+
+  /// Assign a caregiver to a senior
+  Future<bool> assignCaregiverToSenior(String caregiverId, String seniorId) async {
+    state = const AsyncValue.loading();
+    try {
+      await _repository.assignCaregiverToSenior(caregiverId, seniorId);
+      state = const AsyncValue.data(null);
+      return true;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      return false;
+    }
+  }
+
+  /// Unassign a caregiver from a senior
+  Future<bool> unassignCaregiverFromSenior(String caregiverId, String seniorId) async {
+    state = const AsyncValue.loading();
+    try {
+      await _repository.unassignCaregiverFromSenior(caregiverId, seniorId);
+      state = const AsyncValue.data(null);
+      return true;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      return false;
+    }
+  }
+
+  /// Link a family member to a senior
+  Future<bool> linkFamilyToSenior(String familyId, String seniorId) async {
+    state = const AsyncValue.loading();
+    try {
+      await _repository.linkFamilyToSenior(familyId, seniorId);
+      state = const AsyncValue.data(null);
+      return true;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      return false;
+    }
+  }
+
+  /// Unlink a family member from a senior
+  Future<bool> unlinkFamilyFromSenior(String familyId, String seniorId) async {
+    state = const AsyncValue.loading();
+    try {
+      await _repository.unlinkFamilyFromSenior(familyId, seniorId);
+      state = const AsyncValue.data(null);
+      return true;
+    } catch (e, st) {
+      state = AsyncValue.error(e, st);
+      return false;
+    }
+  }
 }
 
 /// Admin user controller provider
@@ -218,4 +270,29 @@ final pendingCountProvider = FutureProvider.autoDispose<int>((ref) async {
   final adminRepo = ref.watch(adminRepositoryProvider);
   final pending = await adminRepo.getPendingUsers();
   return pending.length;
+});
+
+/// Provider for approved seniors
+final approvedSeniorsProvider = FutureProvider.autoDispose<List<AppUser>>((ref) async {
+  final adminRepo = ref.watch(adminRepositoryProvider);
+  return adminRepo.getApprovedUsersByRole('senior');
+});
+
+/// Provider for approved caregivers
+final approvedCaregiversProvider = FutureProvider.autoDispose<List<AppUser>>((ref) async {
+  final adminRepo = ref.watch(adminRepositoryProvider);
+  return adminRepo.getApprovedUsersByRole('caregiver');
+});
+
+/// Provider for approved family members
+final approvedFamilyProvider = FutureProvider.autoDispose<List<AppUser>>((ref) async {
+  final adminRepo = ref.watch(adminRepositoryProvider);
+  return adminRepo.getApprovedUsersByRole('family');
+});
+
+/// Provider to fetch resolved user names by IDs
+final usersByIdsProvider =
+    FutureProvider.autoDispose.family<List<AppUser>, List<String>>((ref, ids) async {
+  final adminRepo = ref.watch(adminRepositoryProvider);
+  return adminRepo.getUsersByIds(ids);
 });

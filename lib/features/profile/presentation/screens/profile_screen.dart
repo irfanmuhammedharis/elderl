@@ -88,6 +88,53 @@ class ProfileScreen extends ConsumerWidget {
                     ? '${user!.createdAt!.day}/${user.createdAt!.month}/${user.createdAt!.year}'
                     : '-',
               ),
+
+              // Relationship info
+              if (user != null) ...[
+                const SizedBox(height: 24),
+                Text(
+                  'Relationships',
+                  style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                ),
+                const SizedBox(height: 12),
+                if (user.isSenior) ...[
+                  _buildRelationshipCard(
+                    context,
+                    icon: Icons.medical_services,
+                    label: 'Assigned Caregivers',
+                    ids: user.assignedCaregivers,
+                    color: Colors.teal,
+                  ),
+                  const SizedBox(height: 8),
+                  _buildRelationshipCard(
+                    context,
+                    icon: Icons.family_restroom,
+                    label: 'Linked Family Members',
+                    ids: user.linkedFamily,
+                    color: Colors.indigo,
+                  ),
+                ],
+                if (user.isCaregiver)
+                  _buildRelationshipCard(
+                    context,
+                    icon: Icons.elderly,
+                    label: 'Assigned Seniors',
+                    ids: user.assignedSeniors,
+                    color: Colors.purple,
+                  ),
+                if (user.isFamily)
+                  _buildProfileItem(
+                    context,
+                    icon: Icons.elderly,
+                    label: 'Linked Senior',
+                    value: user.linkedSeniorId != null
+                        ? 'Linked ✓'
+                        : 'Not linked yet',
+                  ),
+              ],
+
               const SizedBox(height: 32),
 
               // Edit Profile Button
@@ -158,5 +205,39 @@ class ProfileScreen extends ConsumerWidget {
       default:
         return 'User';
     }
+  }
+
+  Widget _buildRelationshipCard(
+    BuildContext context, {
+    required IconData icon,
+    required String label,
+    required List<String>? ids,
+    required Color color,
+  }) {
+    final count = ids?.length ?? 0;
+    return Card(
+      margin: const EdgeInsets.only(bottom: 8),
+      child: ListTile(
+        leading: CircleAvatar(
+          backgroundColor: color.withOpacity(0.15),
+          child: Icon(icon, color: color),
+        ),
+        title: Text(label),
+        trailing: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+          decoration: BoxDecoration(
+            color: count > 0 ? color.withOpacity(0.15) : Colors.grey.withOpacity(0.15),
+            borderRadius: BorderRadius.circular(20),
+          ),
+          child: Text(
+            count > 0 ? '$count linked' : 'None',
+            style: TextStyle(
+              color: count > 0 ? color : Colors.grey,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ),
+    );
   }
 }

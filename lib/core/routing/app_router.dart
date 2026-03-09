@@ -21,6 +21,7 @@ import '../../features/admin/presentation/screens/admin_analytics_screen.dart';
 import '../../features/admin/presentation/screens/admin_settings_screen.dart';
 import '../../features/admin/presentation/screens/user_approval_screen.dart';
 import '../../features/admin/presentation/screens/user_detail_screen.dart';
+import '../../features/admin/presentation/screens/admin_link_management_screen.dart';
 import '../../features/checkin/presentation/screens/daily_checkin_screen.dart';
 import '../../features/emergency/presentation/screens/emergency_screen.dart';
 import '../../features/requests/presentation/screens/create_request_screen.dart';
@@ -70,6 +71,7 @@ class AppRoutes {
   static const String adminEmergencies = '/admin/emergencies';
   static const String adminAnalytics = '/admin/analytics';
   static const String adminSettings = '/admin/settings';
+  static const String adminLinkManagement = '/admin/links';
 
   // Messaging Routes
   static const String conversations = '/messages';
@@ -106,6 +108,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     refreshListenable: authNotifier,
     redirect: (context, state) {
       final authState = ref.read(authControllerProvider);
+
+      // While auth state is still being restored from Firebase, don't
+      // redirect — the controller will notify GoRouter once the state
+      // settles and a proper redirect will fire.
+      if (authState.isLoading) return null;
+
       final isAuthenticated = authState.isAuthenticated;
       final user = authState.user;
       final path = state.uri.path;
@@ -304,6 +312,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         name: 'adminSettings',
         builder: (context, state) => const AdminSettingsScreen(),
       ),
+      GoRoute(
+        path: AppRoutes.adminLinkManagement,
+        name: 'adminLinkManagement',
+        builder: (context, state) => const AdminLinkManagementScreen(),
+      ),
 
       // Common Routes
       GoRoute(
@@ -317,8 +330,17 @@ final appRouterProvider = Provider<GoRouter>((ref) {
         builder: (context, state) {
           final user = state.extra as AppUser?;
           if (user == null) {
-            return const Scaffold(
-              body: Center(child: Text('User data not available')),
+            // extra is lost (e.g. deep-link) — redirect to profile so the
+            // user can tap Edit again with the data properly loaded.
+            return Builder(
+              builder: (ctx) {
+                WidgetsBinding.instance.addPostFrameCallback((_) {
+                  if (ctx.mounted) ctx.go(AppRoutes.profile);
+                });
+                return const Scaffold(
+                  body: Center(child: CircularProgressIndicator()),
+                );
+              },
             );
           }
           return EditProfileScreen(user: user);

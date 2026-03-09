@@ -226,6 +226,112 @@ class AdminRepository {
     }).toList();
   }
 
+  // ─── Admin Linking / Assignment Methods ────────────────────────────
+
+  /// Assign a caregiver to a senior (bidirectional atomic update)
+  Future<void> assignCaregiverToSenior(String caregiverId, String seniorId) async {
+    final firestore = _firestoreService.firestore;
+    final batch = firestore.batch();
+
+    final caregiverRef = firestore.collection(AppConstants.usersCollection).doc(caregiverId);
+    final seniorRef = firestore.collection(AppConstants.usersCollection).doc(seniorId);
+
+    batch.update(caregiverRef, {
+      'assignedSeniors': FieldValue.arrayUnion([seniorId]),
+    });
+    batch.update(seniorRef, {
+      'assignedCaregivers': FieldValue.arrayUnion([caregiverId]),
+    });
+
+    await batch.commit();
+  }
+
+  /// Unassign a caregiver from a senior (bidirectional atomic removal)
+  Future<void> unassignCaregiverFromSenior(String caregiverId, String seniorId) async {
+    final firestore = _firestoreService.firestore;
+    final batch = firestore.batch();
+
+    final caregiverRef = firestore.collection(AppConstants.usersCollection).doc(caregiverId);
+    final seniorRef = firestore.collection(AppConstants.usersCollection).doc(seniorId);
+
+    batch.update(caregiverRef, {
+      'assignedSeniors': FieldValue.arrayRemove([seniorId]),
+    });
+    batch.update(seniorRef, {
+      'assignedCaregivers': FieldValue.arrayRemove([caregiverId]),
+    });
+
+    await batch.commit();
+  }
+
+  /// Link a family member to a senior (bidirectional atomic update)
+  Future<void> linkFamilyToSenior(String familyId, String seniorId) async {
+    final firestore = _firestoreService.firestore;
+    final batch = firestore.batch();
+
+    final familyRef = firestore.collection(AppConstants.usersCollection).doc(familyId);
+    final seniorRef = firestore.collection(AppConstants.usersCollection).doc(seniorId);
+
+    batch.update(familyRef, {'linkedSeniorId': seniorId});
+    batch.update(seniorRef, {
+      'linkedFamily': FieldValue.arrayUnion([familyId]),
+    });
+
+    await batch.commit();
+  }
+
+  /// Unlink a family member from a senior (bidirectional atomic removal)
+  Future<void> unlinkFamilyFromSenior(String familyId, String seniorId) async {
+    final firestore = _firestoreService.firestore;
+    final batch = firestore.batch();
+
+    final familyRef = firestore.collection(AppConstants.usersCollection).doc(familyId);
+    final seniorRef = firestore.collection(AppConstants.usersCollection).doc(seniorId);
+
+    batch.update(familyRef, {'linkedSeniorId': null});
+    batch.update(seniorRef, {
+      'linkedFamily': FieldValue.arrayRemove([familyId]),
+    });
+
+    await batch.commit();
+  }
+
+  /// Get approved users by role
+  Future<List<AppUser>> getApprovedUsersByRole(String role) async {
+    // Query by role only; filter approvalStatus client-side to avoid composite index.
+    final firestore = _firestoreService.firestore;
+    final snapshot = await firestore
+        .collection(AppConstants.usersCollection)
+        .where('role', isEqualTo: role)
+        .get();
+
+    final users = snapshot.docs
+        .map((doc) => AppUser.fromMap({...doc.data(), 'uid': doc.id}))
+        .where((u) => u.approvalStatus == ApprovalStatus.approved)
+        .toList();
+    users.sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    return users;
+  }
+
+  /// Batch-fetch users by IDs (max 10 per Firestore whereIn)
+  Future<List<AppUser>> getUsersByIds(List<String> ids) async {
+    if (ids.isEmpty) return [];
+    final firestore = _firestoreService.firestore;
+    final users = <AppUser>[];
+    for (var i = 0; i < ids.length; i += 10) {
+      final end = i + 10 > ids.length ? ids.length : i + 10;
+      final batch = ids.sublist(i, end);
+      final snapshot = await firestore
+          .collection(AppConstants.usersCollection)
+          .where(FieldPath.documentId, whereIn: batch)
+          .get();
+      users.addAll(
+        snapshot.docs.map((doc) => AppUser.fromMap({...doc.data(), 'uid': doc.id})),
+      );
+    }
+    return users;
+  }
+
   String _approvalStatusToString(ApprovalStatus status) {
     switch (status) {
       case ApprovalStatus.approved:

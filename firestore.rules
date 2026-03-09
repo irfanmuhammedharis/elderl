@@ -36,8 +36,13 @@ service cloud.firestore {
       
       // Users can update their own profile (except approval fields)
       // Admins can update any profile including approval fields
+      // Approved users can update ONLY relationship-linking fields on other users' documents
+      // (needed for caregiver↔senior assignment and family↔senior linking via batch writes)
       allow update: if isOwner(userId) && !request.resource.data.diff(resource.data).affectedKeys()
-        .hasAny(['approvalStatus', 'approvedBy', 'approvedAt', 'role']) || isAdmin();
+        .hasAny(['approvalStatus', 'approvedBy', 'approvedAt', 'role'])
+        || isAdmin()
+        || (isApproved() && request.resource.data.diff(resource.data).affectedKeys()
+            .hasOnly(['assignedSeniors', 'assignedCaregivers', 'linkedFamily', 'linkedSeniorId', 'updatedAt']));
       
       // Only admins can delete users
       allow delete: if isAdmin();

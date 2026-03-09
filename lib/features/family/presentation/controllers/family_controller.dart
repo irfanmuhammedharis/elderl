@@ -79,7 +79,10 @@ class FamilyLinkController extends StateNotifier<AsyncValue<void>> {
       return success;
     } catch (e, st) {
       state = AsyncValue.error(e, st);
-      return false;
+      // Rethrow so the calling UI can show the correct error message.
+      // Previously this was swallowed, causing the dialog to always show
+      // "Linked successfully!" even when the operation failed.
+      rethrow;
     }
   }
 
@@ -90,6 +93,7 @@ class FamilyLinkController extends StateNotifier<AsyncValue<void>> {
       state = const AsyncValue.data(null);
     } catch (e, st) {
       state = AsyncValue.error(e, st);
+      rethrow;
     }
   }
 }

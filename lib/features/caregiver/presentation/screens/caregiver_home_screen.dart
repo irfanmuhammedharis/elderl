@@ -21,7 +21,9 @@ class CaregiverHomeScreen extends ConsumerWidget {
     final myTasksAsync = ref.watch(myAssignedRequestsStreamProvider);
     final emergenciesAsync = ref.watch(activeEmergenciesStreamProvider);
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('ElderL Caregiver'),
         actions: [
@@ -63,7 +65,7 @@ class CaregiverHomeScreen extends ConsumerWidget {
                               radius: 30,
                               backgroundColor: Theme.of(context).colorScheme.primary,
                               child: Text(
-                                (user?.name ?? 'C')[0].toUpperCase(),
+                                (user?.name?.isNotEmpty == true ? user!.name : 'C')[0].toUpperCase(),
                                 style: const TextStyle(
                                   fontSize: 24,
                                   color: Colors.white,
@@ -210,6 +212,7 @@ class CaregiverHomeScreen extends ConsumerWidget {
           ),
         ],
       ),
+      ),
     );
   }
 
@@ -248,38 +251,64 @@ class CaregiverHomeScreen extends ConsumerWidget {
       color: Colors.red.shade50,
       child: Column(
         children: emergencies.take(3).map((emergency) {
-          return ListTile(
-            leading: const CircleAvatar(
-              backgroundColor: Colors.red,
-              child: Icon(Icons.emergency, color: Colors.white),
-            ),
-            title: Text(emergency.seniorName, style: const TextStyle(fontWeight: FontWeight.bold)),
-            subtitle: Text('${_formatTimeAgo(emergency.createdAtDateTime)} • ${emergency.status}'),
-            trailing: ElevatedButton(
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
-              onPressed: () async {
-                try {
-                  final authState = ref.read(authControllerProvider);
-                  final repo = ref.read(emergencyRepositoryProvider);
-                  await repo.respondToEmergency(
-                    emergency.id!,
-                    authState.user?.uid ?? '',
-                    authState.user?.name ?? 'Caregiver',
-                  );
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      const SnackBar(content: Text('Responding to emergency...'), backgroundColor: Colors.green),
-                    );
-                  }
-                } catch (e) {
-                  if (context.mounted) {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(content: Text('Failed to respond: $e'), backgroundColor: Colors.red),
-                    );
-                  }
-                }
-              },
-              child: const Text('Respond', style: TextStyle(color: Colors.white)),
+          // Use an explicit Row instead of ListTile + trailing so the button
+          // does not consume unbounded width and squeeze the title text into a
+          // near-zero-width column (which causes character-by-character
+          // vertical rendering of the senior name / timestamp).
+          return Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+            child: Row(
+              children: [
+                const CircleAvatar(
+                  backgroundColor: Colors.red,
+                  child: Icon(Icons.emergency, color: Colors.white),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        emergency.seniorName,
+                        style: const TextStyle(fontWeight: FontWeight.bold),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      Text(
+                        '${_formatTimeAgo(emergency.createdAtDateTime)} • ${emergency.status}',
+                        style: const TextStyle(fontSize: 12, color: Colors.black54),
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 8),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+                  onPressed: () async {
+                    try {
+                      final authState = ref.read(authControllerProvider);
+                      final repo = ref.read(emergencyRepositoryProvider);
+                      await repo.respondToEmergency(
+                        emergency.id!,
+                        authState.user?.uid ?? '',
+                        authState.user?.name ?? 'Caregiver',
+                      );
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(content: Text('Responding to emergency...'), backgroundColor: Colors.green),
+                        );
+                      }
+                    } catch (e) {
+                      if (context.mounted) {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(content: Text('Failed to respond: $e'), backgroundColor: Colors.red),
+                        );
+                      }
+                    }
+                  },
+                  child: const Text('Respond', style: TextStyle(color: Colors.white)),
+                ),
+              ],
             ),
           );
         }).toList(),

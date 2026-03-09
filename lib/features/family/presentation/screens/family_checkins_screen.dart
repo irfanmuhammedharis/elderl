@@ -13,7 +13,8 @@ class FamilyCheckinsScreen extends ConsumerStatefulWidget {
   const FamilyCheckinsScreen({super.key});
 
   @override
-  ConsumerState<FamilyCheckinsScreen> createState() => _FamilyCheckinsScreenState();
+  ConsumerState<FamilyCheckinsScreen> createState() =>
+      _FamilyCheckinsScreenState();
 }
 
 class _FamilyCheckinsScreenState extends ConsumerState<FamilyCheckinsScreen> {
@@ -115,12 +116,16 @@ class _FamilyCheckinsScreenState extends ConsumerState<FamilyCheckinsScreen> {
           children: [
             Icon(Icons.link_off, size: 80, color: Colors.grey[400]),
             const SizedBox(height: 24),
-            Text('No Senior Linked', style: Theme.of(context).textTheme.headlineSmall),
+            Text('No Senior Linked',
+                style: Theme.of(context).textTheme.headlineSmall),
             const SizedBox(height: 12),
             Text(
               'Link to a senior to view their check-in history.',
               textAlign: TextAlign.center,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.grey[600]),
+              style: Theme.of(context)
+                  .textTheme
+                  .bodyLarge
+                  ?.copyWith(color: Colors.grey[600]),
             ),
             const SizedBox(height: 32),
             ElevatedButton.icon(
@@ -134,8 +139,10 @@ class _FamilyCheckinsScreenState extends ConsumerState<FamilyCheckinsScreen> {
     );
   }
 
-  Widget _buildCheckinsView(BuildContext context, WidgetRef ref, AppUser linkedSenior) {
-    final checkInsAsync = ref.watch(seniorCheckInsStreamProvider(linkedSenior.uid));
+  Widget _buildCheckinsView(
+      BuildContext context, WidgetRef ref, AppUser linkedSenior) {
+    final checkInsAsync =
+        ref.watch(seniorCheckInsStreamProvider(linkedSenior.uid));
 
     return checkInsAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -147,16 +154,16 @@ class _FamilyCheckinsScreenState extends ConsumerState<FamilyCheckinsScreen> {
             children: [
               // Senior Info Card
               _buildSeniorInfoCard(context, linkedSenior, checkIns),
-              
+
               // Statistics Card
               _buildStatisticsCard(context, checkIns),
-              
+
               // Month Selector
               _buildMonthSelector(context),
-              
+
               // Calendar View
               _buildCalendarView(context, checkIns),
-              
+
               // Recent Check-ins List
               _buildRecentCheckinsList(context, checkIns),
             ],
@@ -166,7 +173,8 @@ class _FamilyCheckinsScreenState extends ConsumerState<FamilyCheckinsScreen> {
     );
   }
 
-  Widget _buildSeniorInfoCard(BuildContext context, AppUser senior, List<CheckIn> checkIns) {
+  Widget _buildSeniorInfoCard(
+      BuildContext context, AppUser senior, List<CheckIn> checkIns) {
     final todayCheckin = checkIns.firstWhere(
       (c) {
         final today = DateTime.now();
@@ -189,7 +197,9 @@ class _FamilyCheckinsScreenState extends ConsumerState<FamilyCheckinsScreen> {
             borderRadius: BorderRadius.circular(12),
             gradient: LinearGradient(
               colors: [
-                hasCheckedInToday ? Colors.green.shade50 : Colors.orange.shade50,
+                hasCheckedInToday
+                    ? Colors.green.shade50
+                    : Colors.orange.shade50,
                 Colors.white,
               ],
               begin: Alignment.topLeft,
@@ -204,8 +214,13 @@ class _FamilyCheckinsScreenState extends ConsumerState<FamilyCheckinsScreen> {
                     radius: 35,
                     backgroundColor: AppTheme.primaryColor,
                     child: Text(
-                      senior.name.isNotEmpty ? senior.name[0].toUpperCase() : 'S',
-                      style: const TextStyle(color: Colors.white, fontSize: 28, fontWeight: FontWeight.bold),
+                      senior.name.isNotEmpty
+                          ? senior.name[0].toUpperCase()
+                          : 'S',
+                      style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 28,
+                          fontWeight: FontWeight.bold),
                     ),
                   ),
                   Positioned(
@@ -234,21 +249,31 @@ class _FamilyCheckinsScreenState extends ConsumerState<FamilyCheckinsScreen> {
                   children: [
                     Text(
                       senior.name,
-                      style: Theme.of(context).textTheme.titleLarge?.copyWith(fontWeight: FontWeight.bold),
+                      style: Theme.of(context)
+                          .textTheme
+                          .titleLarge
+                          ?.copyWith(fontWeight: FontWeight.bold),
                     ),
                     const SizedBox(height: 4),
                     Row(
                       children: [
                         Icon(
-                          hasCheckedInToday ? Icons.check_circle : Icons.pending,
+                          hasCheckedInToday
+                              ? Icons.check_circle
+                              : Icons.pending,
                           size: 16,
-                          color: hasCheckedInToday ? Colors.green : Colors.orange,
+                          color:
+                              hasCheckedInToday ? Colors.green : Colors.orange,
                         ),
                         const SizedBox(width: 4),
                         Text(
-                          hasCheckedInToday ? 'Checked in today!' : 'Waiting for check-in',
+                          hasCheckedInToday
+                              ? 'Checked in today!'
+                              : 'Waiting for check-in',
                           style: TextStyle(
-                            color: hasCheckedInToday ? Colors.green[700] : Colors.orange[700],
+                            color: hasCheckedInToday
+                                ? Colors.green[700]
+                                : Colors.orange[700],
                             fontWeight: FontWeight.w500,
                           ),
                         ),
@@ -293,11 +318,14 @@ class _FamilyCheckinsScreenState extends ConsumerState<FamilyCheckinsScreen> {
             children: [
               Row(
                 children: [
-                  Icon(Icons.analytics, color: AppTheme.primaryColor),
+                  const Icon(Icons.analytics, color: AppTheme.primaryColor),
                   const SizedBox(width: 8),
                   Text(
                     'Check-in Statistics',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
@@ -342,7 +370,8 @@ class _FamilyCheckinsScreenState extends ConsumerState<FamilyCheckinsScreen> {
     );
   }
 
-  Widget _buildStatItem(BuildContext context, String label, String value, IconData icon, Color color) {
+  Widget _buildStatItem(BuildContext context, String label, String value,
+      IconData icon, Color color) {
     return Container(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
@@ -355,7 +384,8 @@ class _FamilyCheckinsScreenState extends ConsumerState<FamilyCheckinsScreen> {
           const SizedBox(height: 8),
           Text(
             value,
-            style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold, color: color),
+            style: TextStyle(
+                fontSize: 16, fontWeight: FontWeight.bold, color: color),
           ),
           Text(
             label,
@@ -377,20 +407,26 @@ class _FamilyCheckinsScreenState extends ConsumerState<FamilyCheckinsScreen> {
             icon: const Icon(Icons.chevron_left),
             onPressed: () {
               setState(() {
-                _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month - 1);
+                _selectedMonth =
+                    DateTime(_selectedMonth.year, _selectedMonth.month - 1);
               });
             },
           ),
           Text(
             DateFormat('MMMM yyyy').format(_selectedMonth),
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+            style: Theme.of(context)
+                .textTheme
+                .titleMedium
+                ?.copyWith(fontWeight: FontWeight.bold),
           ),
           IconButton(
             icon: const Icon(Icons.chevron_right),
-            onPressed: _selectedMonth.isBefore(DateTime(DateTime.now().year, DateTime.now().month))
+            onPressed: _selectedMonth.isBefore(
+                    DateTime(DateTime.now().year, DateTime.now().month))
                 ? () {
                     setState(() {
-                      _selectedMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1);
+                      _selectedMonth = DateTime(
+                          _selectedMonth.year, _selectedMonth.month + 1);
                     });
                   }
                 : null,
@@ -401,8 +437,10 @@ class _FamilyCheckinsScreenState extends ConsumerState<FamilyCheckinsScreen> {
   }
 
   Widget _buildCalendarView(BuildContext context, List<CheckIn> checkIns) {
-    final firstDayOfMonth = DateTime(_selectedMonth.year, _selectedMonth.month, 1);
-    final lastDayOfMonth = DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0);
+    final firstDayOfMonth =
+        DateTime(_selectedMonth.year, _selectedMonth.month, 1);
+    final lastDayOfMonth =
+        DateTime(_selectedMonth.year, _selectedMonth.month + 1, 0);
     final daysInMonth = lastDayOfMonth.day;
     final startingWeekday = firstDayOfMonth.weekday % 7; // Sunday = 0
 
@@ -430,7 +468,12 @@ class _FamilyCheckinsScreenState extends ConsumerState<FamilyCheckinsScreen> {
                 children: ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']
                     .map((day) => SizedBox(
                           width: 36,
-                          child: Text(day, textAlign: TextAlign.center, style: TextStyle(fontWeight: FontWeight.bold, color: Colors.grey[600], fontSize: 12)),
+                          child: Text(day,
+                              textAlign: TextAlign.center,
+                              style: TextStyle(
+                                  fontWeight: FontWeight.bold,
+                                  color: Colors.grey[600],
+                                  fontSize: 12)),
                         ))
                     .toList(),
               ),
@@ -455,16 +498,22 @@ class _FamilyCheckinsScreenState extends ConsumerState<FamilyCheckinsScreen> {
                       _selectedMonth.month == DateTime.now().month &&
                       dayNumber == DateTime.now().day;
                   final hasCheckin = checkinDates.contains(dayNumber);
-                  final isPast = DateTime(_selectedMonth.year, _selectedMonth.month, dayNumber)
-                      .isBefore(DateTime.now().subtract(const Duration(days: 1)));
+                  final isPast = DateTime(
+                          _selectedMonth.year, _selectedMonth.month, dayNumber)
+                      .isBefore(
+                          DateTime.now().subtract(const Duration(days: 1)));
 
                   return Container(
                     decoration: BoxDecoration(
                       color: hasCheckin
                           ? Colors.green.shade100
-                          : (isPast && !hasCheckin ? Colors.red.shade50 : Colors.grey.shade100),
+                          : (isPast && !hasCheckin
+                              ? Colors.red.shade50
+                              : Colors.grey.shade100),
                       borderRadius: BorderRadius.circular(8),
-                      border: isToday ? Border.all(color: AppTheme.primaryColor, width: 2) : null,
+                      border: isToday
+                          ? Border.all(color: AppTheme.primaryColor, width: 2)
+                          : null,
                     ),
                     child: Center(
                       child: Stack(
@@ -473,14 +522,18 @@ class _FamilyCheckinsScreenState extends ConsumerState<FamilyCheckinsScreen> {
                           Text(
                             dayNumber.toString(),
                             style: TextStyle(
-                              fontWeight: isToday ? FontWeight.bold : FontWeight.normal,
-                              color: hasCheckin ? Colors.green[800] : Colors.grey[800],
+                              fontWeight:
+                                  isToday ? FontWeight.bold : FontWeight.normal,
+                              color: hasCheckin
+                                  ? Colors.green[800]
+                                  : Colors.grey[800],
                             ),
                           ),
                           if (hasCheckin)
                             Positioned(
                               bottom: 2,
-                              child: Icon(Icons.check_circle, size: 12, color: Colors.green[600]),
+                              child: Icon(Icons.check_circle,
+                                  size: 12, color: Colors.green[600]),
                             ),
                         ],
                       ),
@@ -514,7 +567,8 @@ class _FamilyCheckinsScreenState extends ConsumerState<FamilyCheckinsScreen> {
         Container(
           width: 16,
           height: 16,
-          decoration: BoxDecoration(color: color, borderRadius: BorderRadius.circular(4)),
+          decoration: BoxDecoration(
+              color: color, borderRadius: BorderRadius.circular(4)),
         ),
         const SizedBox(width: 4),
         Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
@@ -522,7 +576,8 @@ class _FamilyCheckinsScreenState extends ConsumerState<FamilyCheckinsScreen> {
     );
   }
 
-  Widget _buildRecentCheckinsList(BuildContext context, List<CheckIn> checkIns) {
+  Widget _buildRecentCheckinsList(
+      BuildContext context, List<CheckIn> checkIns) {
     final recentCheckins = checkIns.take(10).toList();
 
     return Padding(
@@ -535,11 +590,14 @@ class _FamilyCheckinsScreenState extends ConsumerState<FamilyCheckinsScreen> {
             children: [
               Row(
                 children: [
-                  Icon(Icons.history, color: AppTheme.primaryColor),
+                  const Icon(Icons.history, color: AppTheme.primaryColor),
                   const SizedBox(width: 8),
                   Text(
                     'Recent Check-ins',
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.bold),
+                    style: Theme.of(context)
+                        .textTheme
+                        .titleMedium
+                        ?.copyWith(fontWeight: FontWeight.bold),
                   ),
                 ],
               ),
@@ -550,7 +608,8 @@ class _FamilyCheckinsScreenState extends ConsumerState<FamilyCheckinsScreen> {
                   child: Center(child: Text('No check-ins yet')),
                 )
               else
-                ...recentCheckins.map((checkin) => _buildCheckinListItem(context, checkin)),
+                ...recentCheckins
+                    .map((checkin) => _buildCheckinListItem(context, checkin)),
             ],
           ),
         ),
@@ -561,7 +620,9 @@ class _FamilyCheckinsScreenState extends ConsumerState<FamilyCheckinsScreen> {
   Widget _buildCheckinListItem(BuildContext context, CheckIn checkin) {
     return ListTile(
       leading: CircleAvatar(
-        backgroundColor: checkin.status == 'ok' ? Colors.green.shade100 : Colors.orange.shade100,
+        backgroundColor: checkin.status == 'ok'
+            ? Colors.green.shade100
+            : Colors.orange.shade100,
         child: Icon(
           checkin.status == 'ok' ? Icons.check : Icons.schedule,
           color: checkin.status == 'ok' ? Colors.green : Colors.orange,
@@ -586,7 +647,8 @@ class _FamilyCheckinsScreenState extends ConsumerState<FamilyCheckinsScreen> {
 
     // Sort by date descending
     final sortedCheckins = List<CheckIn>.from(checkIns)
-      ..sort((a, b) => (b.checkinTime ?? DateTime(2000)).compareTo(a.checkinTime ?? DateTime(2000)));
+      ..sort((a, b) => (b.checkinTime ?? DateTime(2000))
+          .compareTo(a.checkinTime ?? DateTime(2000)));
 
     int streak = 0;
     DateTime? lastDate;
@@ -602,7 +664,8 @@ class _FamilyCheckinsScreenState extends ConsumerState<FamilyCheckinsScreen> {
 
       if (lastDate == null) {
         // First check-in - must be today or yesterday to count
-        final today = DateTime(DateTime.now().year, DateTime.now().month, DateTime.now().day);
+        final today = DateTime(
+            DateTime.now().year, DateTime.now().month, DateTime.now().day);
         final yesterday = today.subtract(const Duration(days: 1));
         if (checkinDate == today || checkinDate == yesterday) {
           streak = 1;

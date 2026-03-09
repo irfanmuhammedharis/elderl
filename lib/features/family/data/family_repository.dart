@@ -96,7 +96,7 @@ class FamilyRepository {
     if (!familyDoc.exists) return null;
 
     final linkedSeniorId = familyDoc.data()?['linkedSeniorId'] as String?;
-    if (linkedSeniorId == null) return null;
+    if (linkedSeniorId == null || linkedSeniorId.isEmpty) return null;
 
     // Get senior's document
     final seniorDoc = await _firestore
@@ -119,7 +119,9 @@ class FamilyRepository {
       if (!familyDoc.exists) return null;
 
       final linkedSeniorId = familyDoc.data()?['linkedSeniorId'] as String?;
-      if (linkedSeniorId == null) return null;
+      // Guard against both null and empty-string values that would otherwise
+      // cause a Firestore fetch with an invalid document ID.
+      if (linkedSeniorId == null || linkedSeniorId.isEmpty) return null;
 
       final seniorDoc = await _firestore
           .collection(AppConstants.usersCollection)
@@ -134,72 +136,89 @@ class FamilyRepository {
 
   /// Get senior's recent check-ins (for family to monitor)
   Future<List<CheckIn>> getSeniorCheckIns(String seniorId, {int limit = 7}) async {
+    // Query by seniorId only (no orderBy) to avoid requiring a composite index.
+    // Sort client-side; dataset is small (limit 7).
     final snapshot = await _firestore
         .collection(AppConstants.checkinsCollection)
         .where('seniorId', isEqualTo: seniorId)
-        .orderBy('checkinTime', descending: true)
         .limit(limit)
         .get();
 
-    return snapshot.docs
+    final results = snapshot.docs
         .map((doc) => CheckIn.fromMap(doc.data(), id: doc.id))
         .toList();
+    results.sort((a, b) =>
+        (b.checkinTime ?? DateTime(2000)).compareTo(a.checkinTime ?? DateTime(2000)));
+    return results;
   }
 
   /// Stream senior's check-ins for real-time updates
   Stream<List<CheckIn>> streamSeniorCheckIns(String seniorId, {int limit = 7}) {
+    // Query by seniorId only (no orderBy) to avoid requiring a composite index.
+    // Sort client-side; dataset is small (limit 7).
     return _firestore
         .collection(AppConstants.checkinsCollection)
         .where('seniorId', isEqualTo: seniorId)
-        .orderBy('checkinTime', descending: true)
         .limit(limit)
         .snapshots()
         .map((snapshot) {
-          return snapshot.docs
+          final results = snapshot.docs
               .map((doc) => CheckIn.fromMap(doc.data(), id: doc.id))
               .toList();
+          results.sort((a, b) =>
+              (b.checkinTime ?? DateTime(2000)).compareTo(a.checkinTime ?? DateTime(2000)));
+          return results;
         });
   }
 
   /// Get senior's active requests
   Future<List<HelpRequest>> getSeniorRequests(String seniorId) async {
+    // Query by seniorId only (no orderBy) to avoid requiring a composite index.
+    // Sort client-side; dataset is small (limit 20).
     final snapshot = await _firestore
         .collection(AppConstants.requestsCollection)
         .where('seniorId', isEqualTo: seniorId)
-        .orderBy('createdAt', descending: true)
         .limit(20)
         .get();
 
-    return snapshot.docs
+    final results = snapshot.docs
         .map((doc) => HelpRequest.fromMap(doc.data(), id: doc.id))
         .toList();
+    results.sort((a, b) =>
+        (b.createdAt ?? DateTime(2000)).compareTo(a.createdAt ?? DateTime(2000)));
+    return results;
   }
 
   /// Stream senior's requests for real-time updates
   Stream<List<HelpRequest>> streamSeniorRequests(String seniorId) {
+    // Query by seniorId only (no orderBy) to avoid requiring a composite index.
+    // Sort client-side; dataset is small (limit 20).
     return _firestore
         .collection(AppConstants.requestsCollection)
         .where('seniorId', isEqualTo: seniorId)
-        .orderBy('createdAt', descending: true)
         .limit(20)
         .snapshots()
         .map((snapshot) {
-          return snapshot.docs
+          final results = snapshot.docs
               .map((doc) => HelpRequest.fromMap(doc.data(), id: doc.id))
               .toList();
+          results.sort((a, b) =>
+              (b.createdAt ?? DateTime(2000)).compareTo(a.createdAt ?? DateTime(2000)));
+          return results;
         });
   }
 
   /// Get all family members linked to a senior
   Future<List<AppUser>> getFamilyMembers(String seniorId) async {
+    // Query by linkedSeniorId only; filter role client-side to avoid composite index.
     final snapshot = await _firestore
         .collection(AppConstants.usersCollection)
         .where('linkedSeniorId', isEqualTo: seniorId)
-        .where('role', isEqualTo: 'family')
         .get();
 
     return snapshot.docs
         .map((doc) => AppUser.fromMap({...doc.data(), 'uid': doc.id}))
+        .where((u) => u.role == 'family')
         .toList();
   }
 }

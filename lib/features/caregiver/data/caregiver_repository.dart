@@ -147,17 +147,16 @@ class CaregiverRepository {
 
   /// Get requests assigned to this caregiver
   Future<List<HelpRequest>> getMyAssignedRequests(String caregiverId) async {
+    // Query only by assignedTo; filter status client-side to avoid composite index.
     final snapshot = await _firestore
         .collection(AppConstants.requestsCollection)
         .where('assignedTo', isEqualTo: caregiverId)
-        .where('status', whereIn: [
-          AppConstants.statusAccepted,
-          AppConstants.statusInProgress
-        ])
         .get();
 
+    final activeStatuses = {AppConstants.statusAccepted, AppConstants.statusInProgress};
     final requests = snapshot.docs
         .map((doc) => HelpRequest.fromMap(doc.data(), id: doc.id))
+        .where((r) => activeStatuses.contains(r.status))
         .toList();
     requests.sort((a, b) => (b.createdAt ?? DateTime(2000)).compareTo(a.createdAt ?? DateTime(2000)));
     return requests;
@@ -165,18 +164,17 @@ class CaregiverRepository {
 
   /// Stream my assigned requests
   Stream<List<HelpRequest>> streamMyAssignedRequests(String caregiverId) {
+    // Query only by assignedTo; filter status client-side to avoid composite index.
+    final activeStatuses = {AppConstants.statusAccepted, AppConstants.statusInProgress};
     return _firestore
         .collection(AppConstants.requestsCollection)
         .where('assignedTo', isEqualTo: caregiverId)
-        .where('status', whereIn: [
-          AppConstants.statusAccepted,
-          AppConstants.statusInProgress,
-        ])
         .limit(50)
         .snapshots()
         .map((snapshot) {
           final requests = snapshot.docs
               .map((doc) => HelpRequest.fromMap(doc.data(), id: doc.id))
+              .where((r) => activeStatuses.contains(r.status))
               .toList();
           requests.sort((a, b) => (b.createdAt ?? DateTime(2000)).compareTo(a.createdAt ?? DateTime(2000)));
           return requests;
@@ -186,6 +184,9 @@ class CaregiverRepository {
   /// Accept a request (uses transaction to prevent race conditions)
   Future<void> acceptRequest(
       String requestId, String caregiverId, String caregiverName) async {
+    // Capture seniorId from inside the transaction so we don't need to re-read
+    String? seniorId;
+
     await _firestore.runTransaction((transaction) async {
       final docRef = _firestore.collection(AppConstants.requestsCollection).doc(requestId);
       final snapshot = await transaction.get(docRef);
@@ -198,6 +199,9 @@ class CaregiverRepository {
       if (currentStatus != AppConstants.statusPending) {
         throw Exception('Request is no longer available (status: $currentStatus)');
       }
+
+      // Capture seniorId before updating
+      seniorId = snapshot.data()?['seniorId'] as String?;
       
       transaction.update(docRef, {
         'status': AppConstants.statusAccepted,
@@ -209,13 +213,8 @@ class CaregiverRepository {
 
     // Link the caregiver ↔ senior relationship
     // (runs outside the transaction since it touches different documents)
-    final requestDoc = await _firestore
-        .collection(AppConstants.requestsCollection)
-        .doc(requestId)
-        .get();
-    final seniorId = requestDoc.data()?['seniorId'] as String?;
-    if (seniorId != null && seniorId.isNotEmpty) {
-      await assignToSenior(caregiverId, seniorId);
+    if (seniorId != null && seniorId!.isNotEmpty) {
+      await assignToSenior(caregiverId, seniorId!);
     }
   }
 
@@ -239,17 +238,24 @@ class CaregiverRepository {
   /// Get completed requests history
   Future<List<HelpRequest>> getCompletedRequests(String caregiverId,
       {int limit = 50}) async {
+    // Query only by assignedTo to avoid requiring a composite index.
+    // Filter by status client-side.
     final snapshot = await _firestore
         .collection(AppConstants.requestsCollection)
         .where('assignedTo', isEqualTo: caregiverId)
-        .where('status', isEqualTo: AppConstants.statusCompleted)
-        .orderBy('completedAt', descending: true)
-        .limit(limit)
         .get();
 
-    return snapshot.docs
+    final results = snapshot.docs
         .map((doc) => HelpRequest.fromMap(doc.data(), id: doc.id))
+        .where((r) => r.status == AppConstants.statusCompleted)
         .toList();
+
+    // Sort client-side: most-recently-completed first.
+    results.sort((a, b) =>
+        (b.completedAt ?? b.createdAt ?? DateTime(2000))
+            .compareTo(a.completedAt ?? a.createdAt ?? DateTime(2000)));
+
+    return results.take(limit).toList();
   }
 
   /// Get seniors who missed check-in today
@@ -291,14 +297,16 @@ class CaregiverRepository {
 
   /// Get caregivers assigned to a senior
   Future<List<AppUser>> getCaregivers(String seniorId) async {
+    // Query by assignedSeniors only; filter role client-side to avoid
+    // a composite index on (assignedSeniors, role).
     final snapshot = await _firestore
         .collection(AppConstants.usersCollection)
         .where('assignedSeniors', arrayContains: seniorId)
-        .where('role', isEqualTo: 'caregiver')
         .get();
 
     return snapshot.docs
         .map((doc) => AppUser.fromMap({...doc.data(), 'uid': doc.id}))
+        .where((u) => u.role == 'caregiver')
         .toList();
   }
 }

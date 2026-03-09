@@ -57,7 +57,36 @@ final authControllerProvider =
 class AuthController extends StateNotifier<AuthState> {
   final AuthRepository _repository;
 
-  AuthController(this._repository) : super(AuthState.initial());
+  AuthController(this._repository) : super(AuthState.loading()) {
+    _init();
+  }
+
+  /// Restore session from Firebase Auth on startup and listen for changes.
+  /// Without this, the app starts as "not authenticated" even though
+  /// Firebase Auth may still hold a valid session — causing the user
+  /// to appear signed out after the process restarts (e.g., Android back
+  /// button exits the app).
+  Future<void> _init() async {
+    try {
+      final appUser = await _repository.getCurrentUser();
+      if (appUser != null) {
+        state = AuthState.authenticated(appUser);
+      } else {
+        state = AuthState.initial();
+      }
+    } catch (e) {
+      state = AuthState.initial();
+    }
+
+    // Listen for external auth-state changes (token expiry, sign-out from
+    // another device, etc.).
+    _repository.authStateChanges.listen((firebaseUser) {
+      if (firebaseUser == null && state.isAuthenticated) {
+        // User signed out externally
+        state = AuthState.initial();
+      }
+    });
+  }
 
   /// Sign in with email and password
   Future<bool> signIn(String email, String password) async {

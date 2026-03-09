@@ -128,4 +128,87 @@ void main() {
       expect(statusCancelled, 'cancelled');
     });
   });
+
+  group('HelpRequest Date Parsing', () {
+    test('fromMap handles String date values', () {
+      final map = {
+        'seniorId': 'senior-1',
+        'seniorName': 'John',
+        'type': 'medical',
+        'description': 'Help',
+        'createdAt': '2025-06-15T10:30:00.000',
+        'updatedAt': '2025-06-15T11:00:00.000',
+      };
+
+      final request = HelpRequest.fromMap(map);
+
+      expect(request.createdAt, DateTime(2025, 6, 15, 10, 30));
+      expect(request.updatedAt, DateTime(2025, 6, 15, 11, 0));
+    });
+
+    test('fromMap handles null dates gracefully', () {
+      final map = {
+        'seniorId': 'senior-1',
+        'seniorName': 'John',
+        'type': 'medical',
+        'description': 'Help',
+        'createdAt': null,
+        'updatedAt': null,
+        'completedAt': null,
+      };
+
+      final request = HelpRequest.fromMap(map);
+
+      expect(request.createdAt, isNull);
+      expect(request.updatedAt, isNull);
+      expect(request.completedAt, isNull);
+    });
+  });
+
+  group('HelpRequest Robustness', () {
+    test('fromMap handles missing fields', () {
+      final map = <String, dynamic>{};
+
+      final request = HelpRequest.fromMap(map);
+
+      expect(request.seniorId, '');
+      expect(request.seniorName, '');
+      expect(request.type, '');
+      expect(request.description, '');
+      expect(request.status, 'pending');
+      expect(request.isUrgent, false);
+    });
+
+    test('fromMap handles numeric coordinates', () {
+      final map = {
+        'seniorId': 'senior-1',
+        'seniorName': 'John',
+        'type': 'medical',
+        'description': 'Help',
+        'latitude': 40.7128,
+        'longitude': -74.006,
+      };
+
+      final request = HelpRequest.fromMap(map);
+
+      expect(request.latitude, 40.7128);
+      expect(request.longitude, -74.006);
+    });
+
+    test('fromMap handles int coordinates from RTDB', () {
+      final map = {
+        'seniorId': 'senior-1',
+        'seniorName': 'John',
+        'type': 'medical',
+        'description': 'Help',
+        'latitude': 40,
+        'longitude': -74,
+      };
+
+      final request = HelpRequest.fromMap(map);
+
+      expect(request.latitude, 40.0);
+      expect(request.longitude, -74.0);
+    });
+  });
 }

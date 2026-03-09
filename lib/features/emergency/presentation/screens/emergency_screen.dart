@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../../core/theme/app_theme.dart';
 import '../../../../core/services/location_service.dart';
 import '../../../../common_widgets/senior_button.dart';
 import '../../../auth/presentation/controllers/auth_controller.dart';
+import '../../../family/data/family_repository.dart';
 import '../../data/emergency_repository.dart';
 
 class EmergencyScreen extends ConsumerStatefulWidget {
@@ -21,6 +23,8 @@ class _EmergencyScreenState extends ConsumerState<EmergencyScreen> {
   bool _countdownActive = false;
   LocationData? _currentLocation;
   String? _emergencyId;
+  String? _familyContactName;
+  String? _familyContactPhone;
   final _locationService = LocationService();
 
   @override
@@ -33,12 +37,40 @@ class _EmergencyScreenState extends ConsumerState<EmergencyScreen> {
   void initState() {
     super.initState();
     _fetchLocation();
+    _fetchFamilyContact();
   }
 
   Future<void> _fetchLocation() async {
     final location = await _locationService.getCurrentLocation();
     if (mounted) {
       setState(() => _currentLocation = location);
+    }
+  }
+
+  /// Fetch the senior's linked family members and pick the first one's
+  /// phone number as the emergency contact.
+  Future<void> _fetchFamilyContact() async {
+    try {
+      final authState = ref.read(authControllerProvider);
+      final userId = authState.user?.uid;
+      if (userId == null) return;
+
+      final familyRepo = ref.read(familyRepositoryProvider);
+      final familyMembers = await familyRepo.getFamilyMembers(userId);
+
+      if (familyMembers.isNotEmpty && mounted) {
+        // Use the first linked family member with a phone number
+        final contact = familyMembers.firstWhere(
+          (m) => m.phone != null && m.phone!.isNotEmpty,
+          orElse: () => familyMembers.first,
+        );
+        setState(() {
+          _familyContactName = contact.name;
+          _familyContactPhone = contact.phone;
+        });
+      }
+    } catch (_) {
+      // Non-critical — the emergency can still be triggered without this
     }
   }
 
@@ -91,6 +123,9 @@ class _EmergencyScreenState extends ConsumerState<EmergencyScreen> {
       final emergencyId = await emergencyRepo.triggerEmergency(
         seniorId: userId,
         seniorName: userName,
+        seniorPhone: authState.user?.phone,
+        familyContactName: _familyContactName,
+        familyContactPhone: _familyContactPhone,
         emergencyType: 'general',
         location: _currentLocation != null
             ? {
@@ -349,10 +384,18 @@ class _EmergencyScreenState extends ConsumerState<EmergencyScreen> {
                 style: Theme.of(context).textTheme.titleMedium,
               ),
               const SizedBox(height: 12),
-              const ListTile(
-                leading: Icon(Icons.phone, color: Colors.green),
-                title: Text('Family Member'),
-                subtitle: Text('Notification sent'),
+              ListTile(
+                leading: const Icon(Icons.phone, color: Colors.green),
+                title: Text(_familyContactName ?? 'Family Member'),
+                subtitle: Text(
+                  _familyContactPhone ?? 'No phone number on file',
+                ),
+                trailing: _familyContactPhone != null
+                    ? IconButton(
+                        icon: const Icon(Icons.call, color: Colors.green, size: 28),
+                        onPressed: () => _callPhone(_familyContactPhone!),
+                      )
+                    : null,
               ),
               const ListTile(
                 leading: Icon(Icons.phone, color: Colors.green),
@@ -363,6 +406,16 @@ class _EmergencyScreenState extends ConsumerState<EmergencyScreen> {
           ),
         ),
         const SizedBox(height: 24),
+        // Call family button — large and prominent for seniors
+        if (_familyContactPhone != null)
+          SeniorButton(
+            text: 'Call ${_familyContactName ?? 'Family'}',
+            icon: Icons.call,
+            backgroundColor: Colors.green,
+            onPressed: () => _callPhone(_familyContactPhone!),
+            padding: const EdgeInsets.symmetric(vertical: 28),
+          ),
+        if (_familyContactPhone != null) const SizedBox(height: 16),
         // Cancel emergency button
         SeniorButton(
           text: 'Cancel Emergency',
@@ -378,6 +431,18 @@ class _EmergencyScreenState extends ConsumerState<EmergencyScreen> {
         ),
       ],
     );
+  }
+
+  /// Launch the phone dialer with the given number
+  Future<void> _callPhone(String phoneNumber) async {
+    final uri = Uri(scheme: 'tel', path: phoneNumber);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not dial $phoneNumber')),
+      );
+    }
   }
 
   Future<void> _cancelEmergency() async {

@@ -15,7 +15,9 @@ class SeniorHomeScreen extends ConsumerWidget {
     final authState = ref.watch(authControllerProvider);
     final user = authState.user;
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('ElderL'),
         actions: [
@@ -126,6 +128,7 @@ class SeniorHomeScreen extends ConsumerWidget {
             ),
           ],
         ),
+      ),
       ),
     );
   }

@@ -18,7 +18,9 @@ class FamilyHomeScreen extends ConsumerWidget {
     final user = authState.user;
     final linkedSeniorAsync = ref.watch(linkedSeniorStreamProvider);
 
-    return Scaffold(
+    return PopScope(
+      canPop: false,
+      child: Scaffold(
       appBar: AppBar(
         title: const Text('ElderL Family'),
         actions: [
@@ -85,6 +87,7 @@ class FamilyHomeScreen extends ConsumerWidget {
             label: 'Profile',
           ),
         ],
+      ),
       ),
     );
   }
@@ -326,27 +329,44 @@ class FamilyHomeScreen extends ConsumerWidget {
           ElevatedButton(
             onPressed: () async {
               final email = emailController.text.trim();
-              if (email.isNotEmpty) {
-                try {
-                  await ref.read(familyLinkControllerProvider.notifier).linkToSenior(email);
-                  if (ctx.mounted) {
-                    Navigator.pop(ctx);
+              if (email.isEmpty) return;
+              try {
+                final success = await ref
+                    .read(familyLinkControllerProvider.notifier)
+                    .linkToSenior(email);
+                if (!ctx.mounted) return;
+                Navigator.pop(ctx);
+                if (success) {
+                  // Refresh the in-memory auth user so LinkedSeniorId is
+                  // available immediately without requiring a sign-out/in.
+                  await ref
+                      .read(authControllerProvider.notifier)
+                      .refreshUser();
+                  if (context.mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
                       content: Text('Linked successfully!'),
                       backgroundColor: Colors.green,
                     ));
                   }
-                } catch (e) {
-                  if (ctx.mounted) {
-                    Navigator.pop(ctx);
-                    final msg = e.toString().replaceFirst('Exception: ', '');
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content: Text(msg.contains('permission-denied')
-                          ? 'Your account may not be approved yet. Please wait for admin approval.'
-                          : msg),
+                } else {
+                  if (context.mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                      content: Text('Linking failed. Please try again.'),
                       backgroundColor: Colors.red,
                     ));
                   }
+                }
+              } catch (e) {
+                if (!ctx.mounted) return;
+                Navigator.pop(ctx);
+                final msg = e.toString().replaceFirst('Exception: ', '');
+                if (context.mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    content: Text(msg.contains('permission-denied')
+                        ? 'Your account may not be approved yet. Please wait for admin approval.'
+                        : msg),
+                    backgroundColor: Colors.red,
+                  ));
                 }
               }
             },

@@ -8,6 +8,8 @@ class EmergencyAlert {
   final String seniorId;
   final String seniorName;
   final String? seniorPhone;
+  final String? familyContactName;
+  final String? familyContactPhone;
   final double? latitude;
   final double? longitude;
   final String? address;
@@ -23,6 +25,8 @@ class EmergencyAlert {
     required this.seniorId,
     required this.seniorName,
     this.seniorPhone,
+    this.familyContactName,
+    this.familyContactPhone,
     this.latitude,
     this.longitude,
     this.address,
@@ -39,6 +43,8 @@ class EmergencyAlert {
       'seniorId': seniorId,
       'seniorName': seniorName,
       'seniorPhone': seniorPhone,
+      'familyContactName': familyContactName,
+      'familyContactPhone': familyContactPhone,
       'latitude': latitude,
       'longitude': longitude,
       'address': address,
@@ -57,6 +63,8 @@ class EmergencyAlert {
       seniorId: map['seniorId']?.toString() ?? '',
       seniorName: map['seniorName']?.toString() ?? '',
       seniorPhone: map['seniorPhone']?.toString(),
+      familyContactName: map['familyContactName']?.toString(),
+      familyContactPhone: map['familyContactPhone']?.toString(),
       latitude: (map['latitude'] as num?)?.toDouble(),
       longitude: (map['longitude'] as num?)?.toDouble(),
       address: map['address']?.toString(),
@@ -74,6 +82,8 @@ class EmergencyAlert {
     String? seniorId,
     String? seniorName,
     String? seniorPhone,
+    String? familyContactName,
+    String? familyContactPhone,
     double? latitude,
     double? longitude,
     String? address,
@@ -89,6 +99,8 @@ class EmergencyAlert {
       seniorId: seniorId ?? this.seniorId,
       seniorName: seniorName ?? this.seniorName,
       seniorPhone: seniorPhone ?? this.seniorPhone,
+      familyContactName: familyContactName ?? this.familyContactName,
+      familyContactPhone: familyContactPhone ?? this.familyContactPhone,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
       address: address ?? this.address,
@@ -149,6 +161,8 @@ class EmergencyRepository {
     required String seniorId,
     required String seniorName,
     String? seniorPhone,
+    String? familyContactName,
+    String? familyContactPhone,
     String? emergencyType,
     Map<String, dynamic>? location,
   }) async {
@@ -156,6 +170,8 @@ class EmergencyRepository {
       seniorId: seniorId,
       seniorName: seniorName,
       seniorPhone: seniorPhone,
+      familyContactName: familyContactName,
+      familyContactPhone: familyContactPhone,
       latitude: location?['latitude'],
       longitude: location?['longitude'],
       address: location?['address'],
@@ -176,38 +192,46 @@ class EmergencyRepository {
   }
 
   /// Update emergency status
+  /// Uses multiPathUpdate so the status change and active_emergencies
+  /// removal happen in a single atomic write.
   Future<void> updateEmergencyStatus(String emergencyId, String status) async {
-    final updateData = <String, dynamic>{'status': status};
-    
+    final updates = <String, dynamic>{
+      '$_emergenciesPath/$emergencyId/status': status,
+      '$_emergenciesPath/$emergencyId/updatedAt': ServerValue.timestamp,
+    };
+
     if (status == 'resolved') {
-      updateData['resolvedAt'] = ServerValue.timestamp;
-      // Remove from active emergencies when resolved
-      await _realtimeDb.remove('$_activeEmergenciesPath/$emergencyId');
+      updates['$_emergenciesPath/$emergencyId/resolvedAt'] = ServerValue.timestamp;
+      // Setting a path to null removes it in RTDB multi-path update
+      updates['$_activeEmergenciesPath/$emergencyId'] = null;
     } else if (status == 'cancelled') {
-      // Remove from active emergencies when cancelled
-      await _realtimeDb.remove('$_activeEmergenciesPath/$emergencyId');
+      updates['$_activeEmergenciesPath/$emergencyId'] = null;
     }
-    
-    await _realtimeDb.update('$_emergenciesPath/$emergencyId', updateData);
+
+    await _realtimeDb.multiPathUpdate(updates);
   }
 
   /// Respond to emergency
+  /// Uses field-level multi-path update so both RTDB paths are written
+  /// atomically. Field-level paths (e.g. ".../respondedBy") merge into
+  /// the existing node instead of replacing it.
   Future<void> respondToEmergency(
     String emergencyId, 
     String responderId, 
     String responderName,
   ) async {
-    final updateData = {
-      'respondedBy': responderId,
-      'respondedByName': responderName,
-      'status': 'responded',
-      'respondedAt': ServerValue.timestamp,
+    final updates = <String, dynamic>{
+      '$_emergenciesPath/$emergencyId/respondedBy': responderId,
+      '$_emergenciesPath/$emergencyId/respondedByName': responderName,
+      '$_emergenciesPath/$emergencyId/status': 'responded',
+      '$_emergenciesPath/$emergencyId/respondedAt': ServerValue.timestamp,
+      '$_activeEmergenciesPath/$emergencyId/respondedBy': responderId,
+      '$_activeEmergenciesPath/$emergencyId/respondedByName': responderName,
+      '$_activeEmergenciesPath/$emergencyId/status': 'responded',
+      '$_activeEmergenciesPath/$emergencyId/respondedAt': ServerValue.timestamp,
     };
-    
-    // Update each path individually to merge into existing data,
-    // not overwrite (multi-path update replaces entire nodes).
-    await _realtimeDb.update('$_emergenciesPath/$emergencyId', updateData);
-    await _realtimeDb.update('$_activeEmergenciesPath/$emergencyId', updateData);
+
+    await _realtimeDb.multiPathUpdate(updates);
   }
 
   /// Get active emergencies

@@ -20,6 +20,8 @@ void main() {
         seniorId: 'senior-123',
         seniorName: 'Jane Doe',
         seniorPhone: '+1234567890',
+        familyContactName: 'Mary Doe',
+        familyContactPhone: '+0987654321',
         latitude: 40.7128,
         longitude: -74.0060,
         address: '123 Main St, New York, NY',
@@ -30,6 +32,8 @@ void main() {
 
       expect(emergency.id, 'emergency-456');
       expect(emergency.seniorPhone, '+1234567890');
+      expect(emergency.familyContactName, 'Mary Doe');
+      expect(emergency.familyContactPhone, '+0987654321');
       expect(emergency.latitude, 40.7128);
       expect(emergency.longitude, -74.0060);
       expect(emergency.address, '123 Main St, New York, NY');
@@ -129,6 +133,148 @@ void main() {
       );
 
       expect(emergency.createdAtDateTime, isNull);
+    });
+
+    test('respondedAtDateTime converts correctly', () {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final emergency = EmergencyAlert(
+        seniorId: 'senior-1',
+        seniorName: 'Test',
+        respondedAt: now,
+      );
+
+      expect(emergency.respondedAtDateTime, isNotNull);
+      expect(emergency.respondedAtDateTime!.millisecondsSinceEpoch, now);
+    });
+
+    test('resolvedAtDateTime converts correctly', () {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final emergency = EmergencyAlert(
+        seniorId: 'senior-1',
+        seniorName: 'Test',
+        resolvedAt: now,
+      );
+
+      expect(emergency.resolvedAtDateTime, isNotNull);
+      expect(emergency.resolvedAtDateTime!.millisecondsSinceEpoch, now);
+    });
+
+    test('null respondedAt and resolvedAt return null', () {
+      final emergency = EmergencyAlert(
+        seniorId: 'senior-1',
+        seniorName: 'Test',
+      );
+
+      expect(emergency.respondedAtDateTime, isNull);
+      expect(emergency.resolvedAtDateTime, isNull);
+    });
+  });
+
+  group('EmergencyAlert RTDB Dynamic Types', () {
+    test('fromMap handles dynamic types from RTDB', () {
+      final map = <dynamic, dynamic>{
+        'seniorId': 'senior-1',
+        'seniorName': 'John',
+        'seniorPhone': '+1234567890',
+        'latitude': 40.7128,
+        'longitude': -74.006,
+        'status': 'active',
+        'createdAt': 1700000000000,
+      };
+
+      final emergency = EmergencyAlert.fromMap(map, id: 'emg-1');
+
+      expect(emergency.id, 'emg-1');
+      expect(emergency.seniorId, 'senior-1');
+      expect(emergency.latitude, 40.7128);
+      expect(emergency.createdAt, 1700000000000);
+    });
+
+    test('fromMap handles int latitude/longitude', () {
+      final map = <dynamic, dynamic>{
+        'seniorId': 'senior-1',
+        'seniorName': 'John',
+        'latitude': 40,
+        'longitude': -74,
+        'status': 'active',
+      };
+
+      final emergency = EmergencyAlert.fromMap(map);
+
+      expect(emergency.latitude, 40.0);
+      expect(emergency.longitude, -74.0);
+    });
+
+    test('fromMap handles null optional fields', () {
+      final map = <dynamic, dynamic>{
+        'seniorId': 'senior-1',
+        'seniorName': 'John',
+        'status': 'active',
+      };
+
+      final emergency = EmergencyAlert.fromMap(map);
+
+      expect(emergency.seniorPhone, isNull);
+      expect(emergency.familyContactName, isNull);
+      expect(emergency.familyContactPhone, isNull);
+      expect(emergency.latitude, isNull);
+      expect(emergency.longitude, isNull);
+      expect(emergency.address, isNull);
+      expect(emergency.respondedBy, isNull);
+      expect(emergency.respondedByName, isNull);
+      expect(emergency.createdAt, isNull);
+      expect(emergency.respondedAt, isNull);
+      expect(emergency.resolvedAt, isNull);
+    });
+  });
+
+  group('EmergencyAlert Status Transitions', () {
+    test('active → responded transition', () {
+      final active = EmergencyAlert(
+        seniorId: 'senior-1',
+        seniorName: 'John',
+        status: 'active',
+      );
+
+      final responded = active.copyWith(
+        status: 'responded',
+        respondedBy: 'cg-1',
+        respondedByName: 'Dr. Smith',
+        respondedAt: DateTime.now().millisecondsSinceEpoch,
+      );
+
+      expect(active.status, 'active');
+      expect(responded.status, 'responded');
+      expect(responded.respondedBy, 'cg-1');
+    });
+
+    test('responded → resolved transition', () {
+      final responded = EmergencyAlert(
+        seniorId: 'senior-1',
+        seniorName: 'John',
+        status: 'responded',
+        respondedBy: 'cg-1',
+      );
+
+      final resolved = responded.copyWith(
+        status: 'resolved',
+        resolvedAt: DateTime.now().millisecondsSinceEpoch,
+      );
+
+      expect(resolved.status, 'resolved');
+      expect(resolved.resolvedAt, isNotNull);
+    });
+
+    test('active → cancelled transition (false alarm)', () {
+      final active = EmergencyAlert(
+        seniorId: 'senior-1',
+        seniorName: 'John',
+        status: 'active',
+      );
+
+      final cancelled = active.copyWith(status: 'cancelled');
+
+      expect(cancelled.status, 'cancelled');
     });
   });
 }
