@@ -1,0 +1,19 @@
+{
+  "permissions": {
+    "allow": [
+      "Read(//e/flutter/bin/cache/**)",
+      "Read(//e/flutter/**)",
+      "Read(//c/Program Files/**)",
+      "Bash(\"C:/Program Files/Android/Android Studio/jbr/bin/java.exe\" -version)",
+      "Bash(JAVA_HOME=\"C:/Program Files/Android/Android Studio/jbr\" flutter build apk --release)",
+      "Bash(JAVA_HOME=\"C:/Program Files/Android/Android Studio/jbr\" ./gradlew assembleRelease --debug)",
+      "Bash(touch \"C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/firebase_auth-4.20.0/android/test_write\")",
+      "Bash(rm \"C:/Users/user/AppData/Local/Pub/Cache/hosted/pub.dev/firebase_auth-4.20.0/android/test_write\")",
+      "Bash(flutter build apk --release --android-project-arg=\"--continue\")",
+      "Bash(JAVA_HOME=\"C:/Program Files/Android/Android Studio/jbr\" ./gradlew :app:dependencies --configuration releaseRuntimeClasspath)",
+      "Bash(JAVA_HOME=\"C:/Program Files/Android/Android Studio/jbr\" ./gradlew :firebase_auth:compileReleaseJavaWithJavac)",
+      "Bash(JAVA_HOME=\"C:/Program Files/Android/Android Studio/jbr\" ./gradlew :firebase_crashlytics:compileReleaseJavaWithJavac)",
+      "Bash(JAVA_HOME=\"C:/Program Files/Android/Android Studio/jbr\" ./gradlew :firebase_auth:bundleLibCompileToJarRelease)"
+    ]
+  }
+}
