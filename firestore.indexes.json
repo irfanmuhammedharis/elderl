@@ -63,6 +63,14 @@
       "queryScope": "COLLECTION",
       "fields": [
         { "fieldPath": "seniorId", "order": "ASCENDING" },
+        { "fieldPath": "checkinTime", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "checkins",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "seniorId", "order": "ASCENDING" },
         { "fieldPath": "checkinTime", "order": "DESCENDING" }
       ]
     },
